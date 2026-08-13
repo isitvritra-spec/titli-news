@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/*
+ * Mirrors packages/tokens/src/raw.js by hand — Tailwind v4's CSS @theme
+ * block can't import a JS value at parse time, so raw.js stays the source
+ * of truth in intent, and these values are kept in sync manually. See
+ * raw.js's header comment for the full explanation.
+ */
+@theme {
+  --color-bg: #100a0c;
+  --color-maroon: #5a181a;
+  --color-gold: #e4a069;
+  --color-ink: #f4eee6;
+  --color-muted: #a99a92;
+  --color-scrim: rgba(16, 10, 12, 0.92);
+  --color-hairline: rgba(169, 154, 146, 0.16);
+  --color-pressed: rgba(244, 238, 230, 0.06);
+
+  --font-headline: var(--font-fraunces);
+  --font-body: var(--font-inter);
+
+  --radius-card: 24px;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+}

@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,Path\")",
+      "Bash(powershell -Command \"Get-CimInstance Win32_Process -Filter \\\\\"Name='node.exe'\\\\\" | Select-Object ProcessId,CommandLine | Format-List\")",
+      "Bash(powershell -Command \"Stop-Process -Id 2364,17944,15632,26112,25760,2900 -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; Write-Output 'done'\")",
+      "WebFetch(domain:orm.drizzle.team)",
+      "WebSearch",
+      "WebFetch(domain:plaiceholder.co)",
+      "Bash(mkdir -p /d/Project/apps/web/app/api/cards/\\\\[slug\\\\] /d/Project/apps/web/app/api/topics)",
+      "Bash(mkdir -p /d/Project/apps/web/app/api/admin/login /d/Project/apps/web/app/api/admin/logout /d/Project/apps/web/app/api/admin/cards/\\\\[id\\\\] /d/Project/apps/web/app/api/admin/upload /d/Project/apps/web/app/api/admin/topics /d/Project/apps/web/app/api/admin/sources)",
+      "Bash(mkdir -p \"/d/Project/apps/web/app/admin/login\" \"/d/Project/apps/web/app/admin/\\(protected\\)/cards/new\" \"/d/Project/apps/web/app/admin/\\(protected\\)/cards/[id]/edit\" \"/d/Project/apps/web/components/admin\")",
+      "Bash(pnpm clean *)",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('hex'\\)\\)\")",
+      "Bash(pnpm --filter web exec next typegen)",
+      "Bash(pnpm --filter @repo/tokens --filter @repo/utils --filter @repo/api-client typecheck)",
+      "Bash(pnpm --filter @repo/api-client typecheck)",
+      "Bash(pnpm --filter web run db:generate)",
+      "Bash(pnpm --filter web run db:migrate)",
+      "Bash(node -e ' *)",
+      "Bash(pnpm --filter web run db:seed)",
+      "Bash(curl -s http://localhost:3000/api/feed)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('count:',j.length\\);console.log\\('first card:', JSON.stringify\\(j[0], null, 2\\).slice\\(0,600\\)\\);}\\)\")",
+      "Bash(curl -s -o /dev/null -w \"fonts.googleapis.com: %{http_code}\\\\n\" https://fonts.googleapis.com/css2?family=Inter)",
+      "Bash(curl -s -o /dev/null -w \"fonts.gstatic.com: %{http_code}\\\\n\" https://fonts.gstatic.com)",
+      "Bash(env)",
+      "Bash(curl -s -o /d/Project/apps/web/public/fonts/Fraunces-Variable.woff2 \"https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeA.woff2\")",
+      "Bash(curl -s -o /d/Project/apps/web/public/fonts/Inter-Variable.woff2 \"https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2\")",
+      "Bash(file /d/Project/apps/web/public/fonts/*.woff2)",
+      "Bash(curl -s http://localhost:3000/ -w \"\\\\nHTTP_STATUS:%{http_code}\\\\n\")",
+      "Bash(curl -s http://localhost:3000/ -o /tmp/home.html -w \"HTTP_STATUS:%{http_code}\\\\n\")"
+    ],
+    "additionalDirectories": [
+      "D:\\Project\\apps\\web\\app\\api\\cards",
+      "D:\\Project\\apps\\web\\app\\api\\admin\\cards",
+      "D:\\Project\\apps\\web\\app\\admin\\(protected)\\cards\\[id]"
+    ]
+  }
+}

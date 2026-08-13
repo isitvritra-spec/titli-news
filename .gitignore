@@ -1,0 +1,15 @@
+node_modules/
+.turbo/
+dist/
+.next/
+out/
+.expo/
+.expo-shared/
+*.tsbuildinfo
+.env
+.env.local
+apps/web/data/
+apps/web/public/uploads/
+.DS_Store
+Thumbs.db
+.vercel/

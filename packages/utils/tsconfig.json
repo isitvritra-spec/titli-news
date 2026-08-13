@@ -1,0 +1,11 @@
+{
+  "extends": "@repo/config/base.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "ESNext",
+    "outDir": "./dist",
+    "noEmit": true
+  },
+  "include": ["src"]
+}
