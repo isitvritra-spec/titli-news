@@ -36,7 +36,7 @@ export default function AdminLoginPage() {
         <div className="mb-6">
           <BrandMark size={28} />
         </div>
-        <h1 className="font-headline text-2xl text-ink mb-6">Editor sign-in</h1>
+        <h1 className="font-headline text-title text-ink mb-6">Editor sign-in</h1>
         <input
           type="password"
           value={password}
@@ -45,11 +45,11 @@ export default function AdminLoginPage() {
           autoFocus
           className="w-full rounded-md border border-hairline bg-transparent px-3 py-2 text-ink placeholder:text-muted"
         />
-        {error ? <p className="mt-2 text-sm text-gold">{error}</p> : null}
+        {error ? <p className="mt-2 text-caption text-gold">{error}</p> : null}
         <button
           type="submit"
           disabled={submitting}
-          className="mt-4 w-full rounded-full bg-gold px-4 py-2 text-bg font-medium disabled:opacity-50"
+          className="mt-4 w-full rounded-full bg-gold px-4 py-2 font-headline font-medium text-label text-bg disabled:opacity-50"
         >
           {submitting ? "Signing in…" : "Sign in"}
         </button>

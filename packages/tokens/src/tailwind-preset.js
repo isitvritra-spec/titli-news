@@ -22,6 +22,8 @@ module.exports = {
         gold: raw.colors.gold,
         ink: raw.colors.ink,
         muted: raw.colors.muted,
+        surface: raw.colors.surface,
+        surface2: raw.colors.surface2,
         scrim: raw.derived.scrim,
         hairline: raw.derived.hairline,
         pressed: raw.derived.pressed,
@@ -29,6 +31,7 @@ module.exports = {
       fontFamily: {
         headline: [raw.fontFamily.headline],
         body: [raw.fontFamily.body],
+        label: [raw.fontFamily.label],
       },
       fontSize: fontSizePx,
       spacing: spacingPx,

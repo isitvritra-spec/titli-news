@@ -14,8 +14,8 @@ export function TrendBadge({ readings }: { readings: Reading[] }) {
 
   return (
     <View className="flex-row items-center gap-1">
-      <Text className="text-gold text-xs font-body">{arrow}</Text>
-      <Text className="text-gold text-xs font-body">
+      <Text className="text-muted text-caption font-body">{arrow}</Text>
+      <Text className="text-muted text-caption font-body">
         {Math.abs(trend.delta).toLocaleString("en-IN")} since {trend.previous.year}
       </Text>
     </View>

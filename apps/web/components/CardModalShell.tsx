@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
+import { ChevronLeftIcon } from "./icons/ChevronLeftIcon";
+
 /**
  * The overlay chrome for the intercepted-route modal (app/@modal/(.)card/[slug]).
  * The feed underneath stays mounted; this closes back to it via router.back()
@@ -20,13 +22,13 @@ export function CardModalShell({ children }: { children: ReactNode }) {
   }, [router]);
 
   return (
-    <div className="fixed inset-0 z-20 overflow-y-auto bg-bg">
+    <div className="fixed inset-0 z-20 overflow-y-auto bg-surface2">
       <button
         onClick={() => router.back()}
         className="fixed left-5 top-5 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-pressed text-ink"
         aria-label="Close"
       >
-        ✕
+        <ChevronLeftIcon size={20} />
       </button>
       {children}
     </div>

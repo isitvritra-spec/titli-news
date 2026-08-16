@@ -12,12 +12,30 @@
   --color-gold: #e4a069;
   --color-ink: #f4eee6;
   --color-muted: #a99a92;
+  --color-surface: #1b1113;
+  --color-surface2: #241619;
   --color-scrim: rgba(16, 10, 12, 0.92);
-  --color-hairline: rgba(169, 154, 146, 0.16);
+  --color-hairline: rgba(244, 238, 230, 0.1);
   --color-pressed: rgba(244, 238, 230, 0.06);
 
-  --font-headline: var(--font-fraunces);
-  --font-body: var(--font-inter);
+  --font-headline: var(--font-anek-devanagari);
+  --font-body: var(--font-mukta);
+
+  /*
+   * Named for what the text is, not a generic t-shirt scale — mirrors
+   * packages/tokens/src/raw.js's fontSize/lineHeight roles. No separate
+   * "label" font weight token is needed here (unlike mobile): Anek
+   * Devanagari loads as a true variable font on web, so label-role text is
+   * just `font-headline font-medium text-label`.
+   */
+  --text-hero: 28px;
+  --text-hero--line-height: 1.25;
+  --text-title: 21px;
+  --text-title--line-height: 1.25;
+  --text-body: 15px;
+  --text-body--line-height: 1.6;
+  --text-label: 13px;
+  --text-caption: 12px;
 
   --radius-card: 24px;
 }

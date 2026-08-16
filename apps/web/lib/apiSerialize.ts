@@ -1,4 +1,22 @@
+import type { NextRequest } from "next/server";
 import type { Card, CardDetail } from "@repo/api-client";
+
+/**
+ * request.nextUrl.origin doesn't reflect the Host header actually used to
+ * reach this server in this Next.js version — it returns a fixed
+ * localhost:PORT regardless of what host/IP the client connected through
+ * (confirmed: identical across localhost, LAN IP, and an explicit Host
+ * header override). That silently breaks every image URL for any client
+ * that isn't literally the machine running the server — including a real
+ * phone on the LAN, where "localhost" means the phone itself. Read the
+ * Host header directly instead; it always reflects how the client actually
+ * addressed the request.
+ */
+export function requestOrigin(request: NextRequest): string {
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const protocol = request.headers.get("x-forwarded-proto") ?? request.nextUrl.protocol.replace(":", "");
+  return `${protocol}://${host}`;
+}
 
 /**
  * DB/query-layer image URLs are root-relative (next/image on the web app

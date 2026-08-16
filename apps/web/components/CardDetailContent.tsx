@@ -3,6 +3,8 @@ import { isDataCard, type CardDetail } from "@repo/api-client";
 import { formatAsOf, formatCardDate } from "@repo/utils";
 
 import { ContestedBadge } from "./ContestedBadge";
+import { SaveButton } from "./SaveButton";
+import { ShareButton } from "./ShareButton";
 
 export function CardDetailContent({ card }: { card: CardDetail }) {
   const isData = isDataCard(card);
@@ -25,28 +27,40 @@ export function CardDetailContent({ card }: { card: CardDetail }) {
       </div>
 
       <div className="px-5 py-5 md:mx-auto md:max-w-xl">
+        <div className="mb-3 flex items-center justify-end gap-4">
+          <SaveButton cardId={card.id} />
+          <ShareButton slug={card.slug} headline={card.headline} />
+        </div>
+
         {card.isContested ? <div className="mb-3"><ContestedBadge /></div> : null}
 
-        <h1 className="font-headline text-3xl text-ink">{card.headline}</h1>
+        <h1 className="font-headline text-title text-ink">{card.headline}</h1>
+
+        {isData && card.metric ? (
+          <p className="mt-2 font-headline text-hero text-ink tabular-nums">
+            {card.metric.value}
+            {card.metric.unit}
+          </p>
+        ) : null}
 
         {isData ? (
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-caption text-muted">
             {formatAsOf(
               [...card.readings].sort((a, b) => a.year - b.year).at(-1)!.year,
               card.surveySource.name
             )}
           </p>
         ) : (
-          <p className="mt-2 text-sm uppercase tracking-wide text-muted">
+          <p className="mt-2 text-caption uppercase tracking-wide text-muted">
             {card.source.name} · {formatCardDate(card.sourceDate)}
           </p>
         )}
 
-        <p className="mt-4 text-base leading-relaxed text-ink">{card.body}</p>
+        <p className="mt-4 text-body leading-relaxed text-ink">{card.body}</p>
 
         {deepDiveParagraphs.length > 0 ? (
           deepDiveParagraphs.map((paragraph, i) => (
-            <p key={i} className="mt-3 text-base leading-relaxed text-ink">
+            <p key={i} className="mt-3 text-body leading-relaxed text-ink">
               {paragraph}
             </p>
           ))
@@ -63,14 +77,14 @@ export function CardDetailContent({ card }: { card: CardDetail }) {
 
         {isData && card.stateBreakdown && card.stateBreakdown.length > 0 ? (
           <div className="mt-6">
-            <h2 className="mb-2 font-headline text-lg text-ink">By state</h2>
+            <h2 className="mb-2 font-headline text-title text-ink">By state</h2>
             <ul>
               {[...card.stateBreakdown]
                 .sort((a, b) => b.value - a.value)
                 .map((row, i) => (
                   <li
                     key={`${row.state}-${i}`}
-                    className="flex items-center justify-between border-b border-hairline py-2 text-sm"
+                    className="flex items-center justify-between border-b border-hairline py-2 text-body"
                   >
                     <span className="text-ink">{row.state}</span>
                     <span className="text-muted">
@@ -85,12 +99,12 @@ export function CardDetailContent({ card }: { card: CardDetail }) {
 
         {isData && card.readings.length > 1 ? (
           <div className="mt-6">
-            <h2 className="mb-2 font-headline text-lg text-ink">Over time</h2>
+            <h2 className="mb-2 font-headline text-title text-ink">Over time</h2>
             <ul>
               {[...card.readings]
                 .sort((a, b) => a.year - b.year)
                 .map((reading) => (
-                  <li key={reading.year} className="flex items-center justify-between py-1 text-sm">
+                  <li key={reading.year} className="flex items-center justify-between py-1 text-body">
                     <span className="text-muted">{reading.year}</span>
                     <span className="text-ink">{reading.value.toLocaleString("en-IN")}</span>
                   </li>
@@ -100,7 +114,7 @@ export function CardDetailContent({ card }: { card: CardDetail }) {
         ) : null}
 
         {isData && card.methodologyNote ? (
-          <p className="mt-6 text-xs leading-relaxed text-muted">{card.methodologyNote}</p>
+          <p className="mt-6 text-caption leading-relaxed text-muted">{card.methodologyNote}</p>
         ) : null}
       </div>
     </article>

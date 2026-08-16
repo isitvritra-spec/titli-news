@@ -1,10 +1,11 @@
 import raw from "./raw.js";
 
 /**
- * The five brand roles, and nothing else — re-exported (typed) from raw.js,
- * which is the actual literal source of truth. If a color isn't derived
- * from there, it shouldn't exist in the product.
+ * Two families of roles, re-exported (typed) from raw.js, which is the
+ * actual literal source of truth. If a color isn't derived from there, it
+ * shouldn't exist in the product.
  *
+ * Brand roles — `bg`, `maroon`, `gold`, `ink`, `muted`:
  * `maroon` (the oxblood) is a rare brand moment (splash, section intros) —
  * NOT a general-purpose background. Don't wire it into shared utility
  * classes that are easy to reach for; wire it only into the specific
@@ -12,6 +13,11 @@ import raw from "./raw.js";
  *
  * `gold` is the one and only interactive accent — active states, links,
  * trend arrows, the mark itself.
+ *
+ * Raised-surface roles — `surface`, `surface2`:
+ * `surface` is a general raised background (cards, sheets). `surface2` is
+ * reserved for the one deeper/elevated screen (the story-detail screen) —
+ * don't reach for it as a general "slightly lighter than bg" utility.
  */
 export const colors = raw.colors as {
   bg: string;
@@ -19,6 +25,8 @@ export const colors = raw.colors as {
   gold: string;
   ink: string;
   muted: string;
+  surface: string;
+  surface2: string;
 };
 
 /**

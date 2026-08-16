@@ -35,12 +35,16 @@ module.exports = {
     ink: "#F4EEE6",
     /** Source line, dates, captions. */
     muted: "#A99A92",
+    /** General-purpose raised surface — cards, sheets. */
+    surface: "#1B1113",
+    /** The one deeper/elevated screen background (the story-detail screen). */
+    surface2: "#241619",
   },
   derived: {
     /** Bottom-of-image gradient so headline text stays legible over photos. */
     scrim: "rgba(16, 10, 12, 0.92)",
-    /** Hairline dividers / card borders. */
-    hairline: "rgba(169, 154, 146, 0.16)",
+    /** Hairline dividers / card borders — ink-tinted at 10%. */
+    hairline: "rgba(244, 238, 230, 0.1)",
     /** Pressed/active overlay on dark surfaces. */
     pressed: "rgba(244, 238, 230, 0.06)",
   },
@@ -60,23 +64,43 @@ module.exports = {
     24: 96,
   },
   radius: {
-    sm: 6,
+    sm: 8,
     md: 12,
     lg: 20,
     card: 24,
     full: 9999,
   },
+  /**
+   * These must be the *exact* registered font-family names RN's `useFonts`
+   * ends up with (it registers each font under its literal object key, e.g.
+   * "AnekDevanagari_600SemiBold" — never a bare "Anek Devanagari"). A bare
+   * family name here silently falls back to the system font instead of
+   * erroring, which is what happened with the previous Fraunces/Inter
+   * values — keep this in sync with apps/mobile/app/_layout.tsx's useFonts()
+   * call whenever either changes.
+   */
   fontFamily: {
-    headline: "Fraunces",
-    body: "Inter",
+    /** Anek Devanagari 600 — headlines, the data statistic, card titles. */
+    headline: "AnekDevanagari_600SemiBold",
+    /** Mukta 400 — body copy, the ~60-word card text, captions. */
+    body: "Mukta_400Regular",
+    /** Anek Devanagari 500 — topic-row labels, buttons, tab-bar labels. */
+    label: "AnekDevanagari_500Medium",
   },
+  /**
+   * Named for what the text *is*, not a generic t-shirt scale — matches
+   * design-guide.md's own vocabulary so a role maps to exactly one size.
+   */
   fontSize: {
-    xs: 12,
-    sm: 14,
-    base: 16,
-    lg: 18,
-    xl: 22,
-    "2xl": 28,
-    "3xl": 34,
+    /** The big stat number on a data card, tabular-nums, weight 600. */
+    hero: 28,
+    /** Card headline / detail headline / section h1, weight 600. */
+    title: 21,
+    /** Body copy, weight 400. */
+    body: 15,
+    /** Topic-row labels, buttons, tab-bar labels, weight 500. */
+    label: 13,
+    /** Source, date, "as of", footer text, weight 400. */
+    caption: 12,
   },
 };

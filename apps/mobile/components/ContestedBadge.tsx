@@ -7,7 +7,7 @@ import { Text, View } from "react-native";
 export function ContestedBadge() {
   return (
     <View className="self-start rounded-full border border-gold px-3 py-1">
-      <Text className="text-gold text-xs font-body uppercase tracking-wide">
+      <Text className="text-gold text-caption font-body uppercase tracking-wide">
         Contested — accounts differ
       </Text>
     </View>

@@ -5,19 +5,23 @@ import "./globals.css";
 
 // Self-hosted (not next/font/google) — no runtime dependency on Google's
 // CDN, consistent with the rest of this app's self-hosted, no-external-
-// account architecture. Both are variable fonts, so one file covers the
-// whole weight range.
-const fraunces = localFont({
-  src: "../public/fonts/Fraunces-Variable.woff2",
-  variable: "--font-fraunces",
+// account architecture. Both cover Devanagari + Latin in one family, since
+// the content is Indian-language-capable. Anek Devanagari is a variable
+// font (one file covers the weight range); Mukta only ships static weight
+// cuts, so it's loaded as two separate files instead.
+const anekDevanagari = localFont({
+  src: "../public/fonts/AnekDevanagari-Variable.woff2",
+  variable: "--font-anek-devanagari",
   weight: "500 600",
   display: "swap",
 });
 
-const inter = localFont({
-  src: "../public/fonts/Inter-Variable.woff2",
-  variable: "--font-inter",
-  weight: "400 600",
+const mukta = localFont({
+  src: [
+    { path: "../public/fonts/Mukta-Regular.woff2", weight: "400", style: "normal" },
+    { path: "../public/fonts/Mukta-Medium.woff2", weight: "500", style: "normal" },
+  ],
+  variable: "--font-mukta",
   display: "swap",
 });
 
@@ -41,7 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${inter.variable} h-full antialiased`}
+      className={`${anekDevanagari.variable} ${mukta.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-bg text-ink font-body">
         {children}

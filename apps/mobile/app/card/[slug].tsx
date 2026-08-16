@@ -4,9 +4,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { isDataCard } from "@repo/api-client";
 import { computeTrend, formatAsOf, formatCardDate } from "@repo/utils";
+import { colors } from "@repo/tokens";
 
 import { api } from "../../lib/api";
+import { useSavedCardIds, useToggleSaved } from "../../lib/savedCards";
 import { ContestedBadge } from "../../components/ContestedBadge";
+import { ChevronLeftIcon, BookmarkIcon } from "../../components/icons";
 
 /**
  * Expo Router's per-route error boundary convention. Defense-in-depth: if
@@ -15,9 +18,9 @@ import { ContestedBadge } from "../../components/ContestedBadge";
  */
 export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
   return (
-    <View className="flex-1 items-center justify-center bg-bg px-8 gap-3">
-      <Text className="font-headline text-xl text-ink text-center">Something went wrong.</Text>
-      <Text className="text-sm text-muted text-center">{error.message}</Text>
+    <View className="flex-1 items-center justify-center bg-surface2 px-8 gap-3">
+      <Text className="font-headline text-title text-ink text-center">Something went wrong.</Text>
+      <Text className="text-caption text-muted text-center font-body">{error.message}</Text>
       <Pressable onPress={retry} className="rounded-full border border-gold px-4 py-2">
         <Text className="text-gold font-body">Try again</Text>
       </Pressable>
@@ -28,6 +31,8 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => voi
 export default function CardDetail() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
+  const savedIds = useSavedCardIds();
+  const toggleSaved = useToggleSaved();
 
   const { data: card, isPending } = useQuery({
     queryKey: ["card", slug],
@@ -37,28 +42,29 @@ export default function CardDetail() {
 
   if (isPending) {
     return (
-      <View className="flex-1 items-center justify-center bg-bg">
-        <ActivityIndicator color="#E4A069" />
+      <View className="flex-1 items-center justify-center bg-surface2">
+        <ActivityIndicator color={colors.gold} />
       </View>
     );
   }
 
   if (!card) {
     return (
-      <View className="flex-1 items-center justify-center bg-bg px-8">
-        <Text className="font-headline text-xl text-ink text-center">Card not found.</Text>
+      <View className="flex-1 items-center justify-center bg-surface2 px-8">
+        <Text className="font-headline text-title text-ink text-center">Card not found.</Text>
       </View>
     );
   }
 
   const isData = isDataCard(card);
   const trend = isData ? computeTrend(card.readings) : null;
+  const isSaved = savedIds.includes(card.id);
   const deepDiveParagraphs = card.deepDiveBody
     ? card.deepDiveBody.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
     : [];
 
   return (
-    <View className="flex-1 bg-bg">
+    <View className="flex-1 bg-surface2">
       <ScrollView contentContainerClassName="pb-16">
         <Image
           source={{ uri: card.image.url }}
@@ -75,23 +81,33 @@ export default function CardDetail() {
             </View>
           ) : null}
 
-          <Text className="font-headline text-3xl text-ink">{card.headline}</Text>
+          <Text className="font-headline text-title text-ink">{card.headline}</Text>
+
+          {isData && card.metric ? (
+            <Text
+              className="mt-1 font-headline text-hero text-ink"
+              style={{ fontVariant: ["tabular-nums"] }}
+            >
+              {card.metric.value}
+              {card.metric.unit}
+            </Text>
+          ) : null}
 
           {isData && trend?.latest ? (
-            <Text className="mt-2 text-sm text-muted font-body">
+            <Text className="mt-2 text-caption text-muted font-body">
               {formatAsOf(trend.latest.year, card.surveySource.name)}
             </Text>
           ) : !isData ? (
-            <Text className="mt-2 text-sm text-muted font-body uppercase tracking-wide">
+            <Text className="mt-2 text-caption text-muted font-body uppercase tracking-wide">
               {card.source.name} · {formatCardDate(card.sourceDate)}
             </Text>
           ) : null}
 
-          <Text className="mt-4 text-base leading-relaxed text-ink font-body">{card.body}</Text>
+          <Text className="mt-4 text-body leading-relaxed text-ink font-body">{card.body}</Text>
 
           {deepDiveParagraphs.length > 0 ? (
             deepDiveParagraphs.map((paragraph, i) => (
-              <Text key={i} className="mt-3 text-base leading-relaxed text-ink font-body">
+              <Text key={i} className="mt-3 text-body leading-relaxed text-ink font-body">
                 {paragraph}
               </Text>
             ))
@@ -110,7 +126,7 @@ export default function CardDetail() {
 
           {isData && card.stateBreakdown && card.stateBreakdown.length > 0 ? (
             <View className="mt-6">
-              <Text className="font-headline text-lg text-ink mb-2">By state</Text>
+              <Text className="font-headline text-title text-ink mb-2">By state</Text>
               {[...card.stateBreakdown]
                 .sort((a, b) => b.value - a.value)
                 .map((row, i) => (
@@ -118,8 +134,8 @@ export default function CardDetail() {
                     key={`${row.state}-${i}`}
                     className="flex-row items-center justify-between py-2 border-b border-hairline"
                   >
-                    <Text className="text-sm text-ink font-body">{row.state}</Text>
-                    <Text className="text-sm text-muted font-body">
+                    <Text className="text-body text-ink font-body">{row.state}</Text>
+                    <Text className="text-body text-muted font-body">
                       {row.value.toLocaleString("en-IN")}
                       {row.year ? ` (${row.year})` : ""}
                     </Text>
@@ -130,13 +146,13 @@ export default function CardDetail() {
 
           {isData && card.readings.length > 1 ? (
             <View className="mt-6">
-              <Text className="font-headline text-lg text-ink mb-2">Over time</Text>
+              <Text className="font-headline text-title text-ink mb-2">Over time</Text>
               {[...card.readings]
                 .sort((a, b) => a.year - b.year)
                 .map((reading) => (
                   <View key={reading.year} className="flex-row items-center justify-between py-1">
-                    <Text className="text-sm text-muted font-body">{reading.year}</Text>
-                    <Text className="text-sm text-ink font-body">
+                    <Text className="text-body text-muted font-body">{reading.year}</Text>
+                    <Text className="text-body text-ink font-body">
                       {reading.value.toLocaleString("en-IN")}
                     </Text>
                   </View>
@@ -145,7 +161,7 @@ export default function CardDetail() {
           ) : null}
 
           {isData && card.methodologyNote ? (
-            <Text className="mt-6 text-xs text-muted font-body leading-relaxed">
+            <Text className="mt-6 text-caption text-muted font-body leading-relaxed">
               {card.methodologyNote}
             </Text>
           ) : null}
@@ -154,9 +170,18 @@ export default function CardDetail() {
 
       <Pressable
         onPress={() => router.back()}
+        aria-label="Back"
         className="absolute top-14 left-5 h-9 w-9 items-center justify-center rounded-full bg-pressed"
       >
-        <Text className="text-ink">✕</Text>
+        <ChevronLeftIcon size={22} color={colors.ink} />
+      </Pressable>
+
+      <Pressable
+        onPress={() => toggleSaved(card.id)}
+        aria-label={isSaved ? "Remove from saved" : "Save"}
+        className="absolute top-14 right-5 h-9 w-9 items-center justify-center rounded-full bg-pressed"
+      >
+        <BookmarkIcon size={18} color={isSaved ? colors.gold : colors.muted} active={isSaved} />
       </Pressable>
     </View>
   );

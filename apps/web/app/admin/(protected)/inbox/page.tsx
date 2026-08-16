@@ -6,8 +6,8 @@ export default async function InboxPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="font-headline text-2xl text-ink mb-1">Inbox</h1>
-      <p className="text-sm text-muted mb-6">
+      <h1 className="font-headline text-title text-ink mb-1">Inbox</h1>
+      <p className="text-caption text-muted mb-6">
         Real articles from the sources named in the brief — review each one and write a fresh
         60-word card. Nothing here reaches readers until you do.
       </p>

@@ -9,8 +9,8 @@ export default async function AdminDashboard() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-headline text-2xl text-ink">Cards</h1>
-        <Link href="/admin/cards/new" className="rounded-full bg-gold px-4 py-2 text-sm text-bg font-medium">
+        <h1 className="font-headline text-title text-ink">Cards</h1>
+        <Link href="/admin/cards/new" className="rounded-full bg-gold px-4 py-2 font-headline font-medium text-label text-bg">
           + New card
         </Link>
       </div>
@@ -25,16 +25,16 @@ export default async function AdminDashboard() {
               className="flex items-center justify-between border-b border-hairline py-3"
             >
               <div>
-                <span className="text-xs uppercase tracking-wide text-muted mr-2">
+                <span className="text-caption uppercase tracking-wide text-muted mr-2">
                   {card.cardType}
                 </span>
                 <span className="text-ink">{card.headline}</span>
-                <span className="block text-xs text-muted mt-0.5">
+                <span className="block text-caption text-muted mt-0.5">
                   {formatCardDate(card.publishedAt)}
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <Link href={`/admin/cards/${card.id}/edit`} className="text-sm text-gold">
+                <Link href={`/admin/cards/${card.id}/edit`} className="font-headline font-medium text-label text-gold">
                   Edit
                 </Link>
                 <DeleteCardButton id={card.id} headline={card.headline} />

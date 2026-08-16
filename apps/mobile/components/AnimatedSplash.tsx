@@ -1,5 +1,5 @@
 import { useEffect, useState, type PropsWithChildren } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { colors, motion } from "@repo/tokens";
+import { ButterflyMark } from "./icons/ButterflyMark";
 
 /**
  * The one deliberate oxblood-glow brand moment (see the brief's "Usage
@@ -50,8 +51,7 @@ export function AnimatedSplash({ children }: PropsWithChildren) {
           style={[StyleSheet.absoluteFill, styles.splash, splashStyle]}
         >
           <Animated.View style={[styles.glow, glowStyle]} />
-          {/* Placeholder mark — swap for the real line-art butterfly SVG (assets/mark.svg) once you have it. */}
-          <Text style={styles.mark}>🦋</Text>
+          <ButterflyMark size={64} color={colors.gold} />
         </Animated.View>
       ) : null}
     </View>
@@ -70,9 +70,5 @@ const styles = StyleSheet.create({
     height: 480,
     borderRadius: 240,
     backgroundColor: colors.maroon,
-  },
-  mark: {
-    fontSize: 40,
-    color: colors.gold,
   },
 });

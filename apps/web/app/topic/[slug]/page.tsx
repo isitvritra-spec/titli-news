@@ -33,7 +33,7 @@ export default async function TopicPage(props: PageProps<"/topic/[slug]">) {
       <FeedHeader title={topic.title} />
       {cards.length === 0 ? (
         <div className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
-          <p className="font-headline text-2xl text-ink">No cards on {topic.title} yet.</p>
+          <p className="font-headline text-title text-ink">No cards on {topic.title} yet.</p>
         </div>
       ) : (
         <FeedScroll cards={cards} />

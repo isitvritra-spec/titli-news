@@ -12,16 +12,16 @@ export default async function TopicsPage() {
       <Link href="/" className="inline-flex">
         <BrandMark />
       </Link>
-      <h1 className="font-headline text-3xl text-ink mt-4 mb-1">Topics</h1>
-      <p className="text-sm text-muted mb-8">Follow what you care about.</p>
+      <h1 className="font-headline text-title text-ink mt-4 mb-1">Topics</h1>
+      <p className="text-caption text-muted mb-8">Follow what you care about.</p>
 
       <ul className="flex flex-col">
         {topics.map((topic) => (
           <li key={topic.id} className="border-b border-hairline py-4">
             <Link href={`/topic/${topic.slug}`} className="block">
-              <span className="text-base text-ink">{topic.title}</span>
+              <span className="font-headline font-medium text-label text-ink">{topic.title}</span>
               {topic.shortDescription ? (
-                <span className="block text-xs text-muted mt-0.5">{topic.shortDescription}</span>
+                <span className="block text-caption text-muted mt-0.5">{topic.shortDescription}</span>
               ) : null}
             </Link>
           </li>

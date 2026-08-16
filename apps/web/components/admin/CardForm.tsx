@@ -230,7 +230,7 @@ export function CardForm({
 
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-2xl pb-20">
-      <h1 className="font-headline text-2xl text-ink mb-6">
+      <h1 className="font-headline text-title text-ink mb-6">
         {mode === "create" ? "New card" : "Edit card"}
       </h1>
 
@@ -269,7 +269,7 @@ export function CardForm({
           accept="image/*"
           onChange={(e) => onImageChange(e.target.files?.[0] ?? null)}
         />
-        {uploading ? <p className="text-sm text-muted mt-1">Uploading…</p> : null}
+        {uploading ? <p className="text-caption text-muted mt-1">Uploading…</p> : null}
         {imagePath ? (
           <div className="relative mt-2 h-40 w-full overflow-hidden rounded-md">
             <Image src={imagePath} alt={imageAlt || "preview"} fill className="object-cover" />
@@ -286,7 +286,7 @@ export function CardForm({
           {topics.map((topic) => (
             <label
               key={topic.id}
-              className={`rounded-full border px-3 py-1 text-sm cursor-pointer ${
+              className={`rounded-full border px-3 py-1 font-headline font-medium text-label cursor-pointer ${
                 topicIds.includes(topic.id) ? "border-gold text-gold" : "border-hairline text-muted"
               }`}
             >
@@ -451,7 +451,7 @@ export function CardForm({
 
       {newSourceOpen ? (
         <div className="mb-4 rounded-md border border-hairline p-4">
-          <p className="text-sm text-ink mb-2">New {cardType === "news" ? "news outlet" : "survey"} source</p>
+          <p className="text-caption text-ink mb-2">New {cardType === "news" ? "news outlet" : "survey"} source</p>
           <input
             type="text"
             value={newSourceName}
@@ -467,22 +467,22 @@ export function CardForm({
             className={`${inputClass} mb-2`}
           />
           <div className="flex gap-2">
-            <button type="button" onClick={onCreateSource} className="rounded-full bg-gold px-3 py-1 text-sm text-bg">
+            <button type="button" onClick={onCreateSource} className="rounded-full bg-gold px-3 py-1 font-headline font-medium text-label text-bg">
               Add
             </button>
-            <button type="button" onClick={() => setNewSourceOpen(false)} className="text-sm text-muted">
+            <button type="button" onClick={() => setNewSourceOpen(false)} className="font-headline font-medium text-label text-muted">
               Cancel
             </button>
           </div>
         </div>
       ) : null}
 
-      {error ? <p className="mb-4 text-sm text-gold">{error}</p> : null}
+      {error ? <p className="mb-4 text-caption text-gold">{error}</p> : null}
 
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-full bg-gold px-5 py-2 text-bg font-medium disabled:opacity-50"
+        className="rounded-full bg-gold px-5 py-2 font-headline font-medium text-label text-bg disabled:opacity-50"
       >
         {submitting ? "Saving…" : mode === "create" ? "Publish card" : "Save changes"}
       </button>
@@ -495,7 +495,7 @@ const inputClass = "w-full rounded-md border border-hairline bg-transparent px-3
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mb-5">
-      <label className="mb-1 block text-sm text-muted">{label}</label>
+      <label className="mb-1 block font-headline font-medium text-label text-muted">{label}</label>
       {children}
     </div>
   );
@@ -548,7 +548,7 @@ function SourceSelect({
           </option>
         ))}
       </select>
-      <button type="button" onClick={onAddNew} className="whitespace-nowrap text-sm text-gold">
+      <button type="button" onClick={onAddNew} className="whitespace-nowrap font-headline font-medium text-label text-gold">
         + New
       </button>
     </div>
@@ -581,7 +581,7 @@ function Repeater<T extends Record<string, string>>({
           </button>
         </div>
       ))}
-      <button type="button" onClick={() => onChange([...rows, empty])} className="self-start text-sm text-gold">
+      <button type="button" onClick={() => onChange([...rows, empty])} className="self-start font-headline font-medium text-label text-gold">
         + Add row
       </button>
     </div>

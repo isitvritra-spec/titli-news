@@ -11,8 +11,8 @@ export default async function Home() {
   if (cards.length === 0) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="font-headline text-3xl text-ink">No cards yet.</p>
-        <p className="text-sm text-muted">Check back soon.</p>
+        <p className="font-headline text-title text-ink">No cards yet.</p>
+        <p className="text-caption text-muted">Check back soon.</p>
       </main>
     );
   }

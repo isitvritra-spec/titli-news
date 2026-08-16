@@ -11,7 +11,7 @@ export function TrendBadge({ readings }: { readings: Reading[] }) {
   const arrow = trend.direction === "up" ? "▲" : "▼";
 
   return (
-    <span className="inline-flex items-center gap-1 text-gold text-xs">
+    <span className="inline-flex items-center gap-1 text-muted text-caption">
       <span>{arrow}</span>
       <span>
         {Math.abs(trend.delta).toLocaleString("en-IN")} since {trend.previous.year}

@@ -15,7 +15,7 @@ export function DeleteCardButton({ id, headline }: { id: string; headline: strin
   }
 
   return (
-    <button onClick={onClick} disabled={deleting} className="text-sm text-muted hover:text-ink disabled:opacity-50">
+    <button onClick={onClick} disabled={deleting} className="font-headline font-medium text-label text-muted hover:text-ink disabled:opacity-50">
       {deleting ? "Deleting…" : "Delete"}
     </button>
   );

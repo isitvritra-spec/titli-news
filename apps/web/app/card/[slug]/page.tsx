@@ -47,12 +47,12 @@ export default async function CardPage(props: PageProps<"/card/[slug]">) {
     : null;
 
   return (
-    <main>
+    <main className="min-h-dvh bg-surface2">
       <div className="flex items-center justify-between px-5 pt-5 md:mx-auto md:max-w-xl">
         <Link href="/" className="inline-flex">
           <BrandMark />
         </Link>
-        <Link href="/" className="text-sm text-muted">
+        <Link href="/" className="font-headline font-medium text-label text-muted">
           ← Feed
         </Link>
       </div>

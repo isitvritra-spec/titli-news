@@ -50,12 +50,12 @@ export function InboxList({ candidates }: { candidates: InboxCandidate[] }) {
         <button
           onClick={onCheckForNew}
           disabled={checking}
-          className="rounded-full bg-gold px-4 py-2 text-sm text-bg font-medium disabled:opacity-50"
+          className="rounded-full bg-gold px-4 py-2 font-headline font-medium text-label text-bg disabled:opacity-50"
         >
           {checking ? "Checking…" : "Check for new articles"}
         </button>
         {newCount !== null ? (
-          <span className="text-sm text-muted">
+          <span className="text-caption text-muted">
             {newCount > 0 ? `${newCount} new item${newCount === 1 ? "" : "s"}` : "No new items"}
           </span>
         ) : null}
@@ -82,7 +82,7 @@ export function InboxList({ candidates }: { candidates: InboxCandidate[] }) {
               )}
 
               <div className="flex-1 min-w-0">
-                <span className="text-xs uppercase tracking-wide text-muted">{item.sourceName}</span>
+                <span className="text-caption uppercase tracking-wide text-muted">{item.sourceName}</span>
                 <a
                   href={item.link}
                   target="_blank"
@@ -92,7 +92,7 @@ export function InboxList({ candidates }: { candidates: InboxCandidate[] }) {
                   {item.title}
                 </a>
                 {item.pubDate ? (
-                  <span className="text-xs text-muted">
+                  <span className="text-caption text-muted">
                     {new Date(item.pubDate).toLocaleDateString("en-IN")}
                   </span>
                 ) : null}
@@ -102,14 +102,14 @@ export function InboxList({ candidates }: { candidates: InboxCandidate[] }) {
                 <button
                   onClick={() => onDraft(item.id)}
                   disabled={busyId === item.id}
-                  className="whitespace-nowrap rounded-full border border-gold px-3 py-1 text-sm text-gold disabled:opacity-50"
+                  className="whitespace-nowrap rounded-full border border-gold px-3 py-1 font-headline font-medium text-label text-gold disabled:opacity-50"
                 >
                   {busyId === item.id ? "…" : "Draft from this"}
                 </button>
                 <button
                   onClick={() => onDismiss(item.id)}
                   disabled={busyId === item.id}
-                  className="text-sm text-muted hover:text-ink disabled:opacity-50"
+                  className="font-headline font-medium text-label text-muted hover:text-ink disabled:opacity-50"
                 >
                   Dismiss
                 </button>

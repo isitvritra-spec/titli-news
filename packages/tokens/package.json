@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./tailwind-preset": "./src/tailwind-preset.js",
-    "./raw": "./src/raw.js"
+    "./raw": "./src/raw.js",
+    "./icons": "./src/icons.js"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
