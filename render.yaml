@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: titli-news
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && env DATABASE_PATH=/tmp/titli-build.db pnpm --filter web db:migrate && env DATABASE_PATH=/tmp/titli-build.db pnpm --filter web build:production
+    startCommand: pnpm --filter web start:production
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: STORAGE_ROOT
+        value: /var/data
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_SESSION_SECRET
+        generateValue: true
+    disk:
+      name: titli-data
+      mountPath: /var/data
+      sizeGB: 1

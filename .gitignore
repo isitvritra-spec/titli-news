@@ -13,3 +13,6 @@ apps/web/public/uploads/
 .DS_Store
 Thumbs.db
 .vercel/
+.pnpm-store/
+.pnpm-home/
+.tmp/

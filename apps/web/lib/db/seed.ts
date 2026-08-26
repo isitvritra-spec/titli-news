@@ -14,12 +14,10 @@
  * per the brief's editorial workflow before real use.
  */
 import sharp from "sharp";
-import path from "node:path";
 import fs from "node:fs/promises";
 import { db } from "./client";
 import { cardReadings, cards, cardStateBreakdown, cardTopics, sources, topics } from "./schema";
-
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+import { storedImagePath, uploadDirectory, uploadedImageUrl } from "../storage";
 
 const PALETTE = ["#5A181A", "#E4A069", "#2A1518", "#7A2E24", "#100A0C"];
 
@@ -29,7 +27,7 @@ async function makePlaceholderImage(seed: number): Promise<{
   height: number;
   blurDataURL: string;
 }> {
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
+  await fs.mkdir(uploadDirectory, { recursive: true });
   const width = 1200;
   const height = 800;
   const bg = PALETTE[seed % PALETTE.length];
@@ -42,12 +40,12 @@ async function makePlaceholderImage(seed: number): Promise<{
 
   const filename = `seed-${seed}.webp`;
   const buffer = await sharp(Buffer.from(svg)).webp({ quality: 80 }).toBuffer();
-  await fs.writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  await fs.writeFile(storedImagePath(filename)!, buffer);
 
   const blurBuffer = await sharp(Buffer.from(svg)).resize(16).webp({ quality: 40 }).toBuffer();
 
   return {
-    path: `/uploads/${filename}`,
+    path: uploadedImageUrl(filename),
     width,
     height,
     blurDataURL: `data:image/webp;base64,${blurBuffer.toString("base64")}`,

@@ -47,6 +47,23 @@ pnpm --filter web dev   # http://localhost:3000
 
 Visit `/admin/login` to sign in and write cards. Visit `/` to see the reading feed.
 
+## Production deployment (Render)
+
+The repository includes a `render.yaml` Blueprint for a paid Render web
+service with a 1 GB persistent disk. The disk stores both the SQLite database
+and uploaded images under `/var/data`; the startup command runs migrations
+before starting Next.js.
+
+1. In Render, create a new Blueprint and connect this GitHub repository.
+2. Enter `NEXT_PUBLIC_SITE_URL` and a strong `ADMIN_PASSWORD` when prompted.
+   Render generates `ADMIN_SESSION_SECRET` automatically.
+3. Deploy, then visit `/api/health` and confirm it returns `{ "status": "ok" }`.
+4. Visit `/admin/login` and publish the first production cards.
+
+The initial `onrender.com` URL is enough to launch. When a custom domain is
+connected, update `NEXT_PUBLIC_SITE_URL` to its final `https://` URL and
+redeploy so metadata, sitemap entries, and sharing URLs use it.
+
 ### Running the mobile app
 
 ```bash
@@ -61,11 +78,16 @@ pnpm start
 
 ## Deployment note: this needs a persistent disk
 
-The SQLite database (`apps/web/data/bitefeed.db`) and uploaded images (`apps/web/public/uploads/`) are plain files on disk. That's the whole point of the self-hosted, no-external-account design — but it means this **cannot** be deployed to a plain serverless platform (e.g. Vercel's standard functions), since those don't persist filesystem writes between requests.
+The SQLite database and uploaded images are plain files on disk. Locally they
+default to `apps/web/data/bitefeed.db` and `apps/web/public/uploads/`. In
+production, `STORAGE_ROOT` keeps both under one mounted persistent directory.
+This **cannot** be deployed to a plain serverless platform (e.g. Vercel's
+standard functions), since those don't persist filesystem writes between
+requests.
 
 What does work:
-- A small persistent VPS (Railway, Render, Fly.io, a DigitalOcean droplet, your own server) running `pnpm build && pnpm start`, with `apps/web/data/` and `apps/web/public/uploads/` on a persistent volume.
-- A Docker container with a mounted volume for those two paths.
+- A small persistent VPS (Railway, Render, Fly.io, a DigitalOcean droplet, your own server) running `pnpm build && pnpm start`, with `STORAGE_ROOT` on a persistent volume.
+- A Docker container with `STORAGE_ROOT` on a mounted volume.
 
 If you'd rather deploy to serverless hosting later, that's a config change, not a rewrite: swap `apps/web/lib/db/client.ts` to a hosted Postgres/SQLite-compatible service (e.g. Turso, Neon) and `apps/web/lib/images.ts` to an object storage bucket (e.g. S3-compatible storage) — the rest of the app (queries, API routes, both frontends) doesn't need to change, since they only go through those two files.
 

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import type { Card, CardDetail, ImageAsset, Reading, SourceRef, StateReading, Topic, TopicRef } from "@repo/api-client";
 
 import { db } from "./client";

@@ -1,12 +1,13 @@
-import path from "node:path";
 import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import sharp from "sharp";
+import { storedImagePath, uploadDirectory, uploadedImageUrl } from "./storage";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+export const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
+const MAX_IMAGE_PIXELS = 40_000_000;
 
 export type SavedImage = {
-  /** Root-relative path under /public — served directly by Next, and resolvable to an absolute URL by prefixing the site origin (see lib/apiSerialize.ts). */
+  /** Root-relative media URL, made absolute for API clients by lib/apiSerialize.ts. */
   path: string;
   width: number;
   height: number;
@@ -28,22 +29,29 @@ export type SavedImage = {
  * like a manually-uploaded one.
  */
 async function processImageBuffer(inputBuffer: Buffer): Promise<SavedImage> {
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
+  if (inputBuffer.byteLength > MAX_IMAGE_BYTES) {
+    throw new Error("Image must be 15 MB or smaller");
+  }
 
-  const image = sharp(inputBuffer).rotate();
+  await fs.mkdir(uploadDirectory, { recursive: true });
+
+  const image = sharp(inputBuffer, { limitInputPixels: MAX_IMAGE_PIXELS }).rotate();
   const metadata = await image.metadata();
+  if (!metadata.width || !metadata.height) {
+    throw new Error("Image dimensions could not be read");
+  }
 
   const filename = `${crypto.randomUUID()}.webp`;
   const optimized = await image.clone().webp({ quality: 85 }).toBuffer();
-  await fs.writeFile(path.join(UPLOAD_DIR, filename), optimized);
+  await fs.writeFile(storedImagePath(filename)!, optimized);
 
   const blurBuffer = await sharp(inputBuffer).rotate().resize(16).webp({ quality: 40 }).toBuffer();
   const blurDataURL = `data:image/webp;base64,${blurBuffer.toString("base64")}`;
 
   return {
-    path: `/uploads/${filename}`,
-    width: metadata.width ?? 0,
-    height: metadata.height ?? 0,
+    path: uploadedImageUrl(filename),
+    width: metadata.width,
+    height: metadata.height,
     blurDataURL,
   };
 }
@@ -61,8 +69,6 @@ export async function saveUploadedImage(file: File): Promise<SavedImage> {
  * request or process an arbitrarily large payload.
  */
 const FETCH_TIMEOUT_MS = 10_000;
-const MAX_IMAGE_BYTES = 15 * 1024 * 1024; // 15MB
-
 export async function saveImageFromUrl(url: string): Promise<SavedImage | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -123,7 +129,13 @@ export async function generatePlaceholderImage(seedText: string): Promise<SavedI
 }
 
 export async function deleteUploadedImage(imagePath: string): Promise<void> {
-  if (!imagePath.startsWith("/uploads/")) return;
-  const filePath = path.join(process.cwd(), "public", imagePath);
-  await fs.unlink(filePath).catch(() => {});
+  let filename: string | null = null;
+  if (imagePath.startsWith("/media/")) {
+    filename = decodeURIComponent(imagePath.slice("/media/".length));
+  } else if (imagePath.startsWith("/uploads/")) {
+    filename = imagePath.slice("/uploads/".length);
+  }
+
+  const filePath = filename ? storedImagePath(filename) : null;
+  if (filePath) await fs.unlink(filePath).catch(() => {});
 }
