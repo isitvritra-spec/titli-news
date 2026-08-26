@@ -26,6 +26,8 @@ export type FeedSource = {
   siteUrl: string;
   feedUrl: string;
   fallbackFeedUrl?: string;
+  trustTier: "primary" | "trusted" | "discovery";
+  sourceType: "official" | "specialist" | "mainstream" | "data" | "aggregator";
 };
 
 export const SOURCES: FeedSource[] = [
@@ -33,39 +35,73 @@ export const SOURCES: FeedSource[] = [
     name: "Feminism in India",
     siteUrl: "https://feminisminindia.com",
     feedUrl: "https://feminisminindia.com/feed/",
+    trustTier: "trusted",
+    sourceType: "specialist",
   },
   {
     name: "Scroll.in",
     siteUrl: "https://scroll.in",
     // scroll.in/feed is bot-blocked for server-side fetches; this FeedBurner mirror is the real working feed.
     feedUrl: "https://feeds.feedburner.com/ScrollinArticles.rss",
+    trustTier: "trusted",
+    sourceType: "mainstream",
   },
   {
-    name: "IndiaSpend (ISignal)",
+    name: "ISignal",
     siteUrl: "https://www.isignal.in",
     feedUrl: "https://www.isignal.in/feeds.xml",
+    trustTier: "trusted",
+    sourceType: "data",
   },
   {
-    name: "Behanbox",
+    name: "BehanBox",
     siteUrl: "https://behanbox.com",
     feedUrl: "https://behanbox.com/feed/",
+    trustTier: "trusted",
+    sourceType: "specialist",
+  },
+  {
+    name: "Khabar Lahariya",
+    siteUrl: "https://khabarlahariya.org",
+    feedUrl: "https://khabarlahariya.org/feed/",
+    trustTier: "trusted",
+    sourceType: "specialist",
   },
   {
     name: "PIB",
     siteUrl: "https://pib.gov.in",
     feedUrl: "https://www.pib.gov.in/ViewRss.aspx?reg=1&lang=1",
     fallbackFeedUrl: "https://archive.pib.gov.in/newsite/rssenglish.aspx",
+    trustTier: "primary",
+    sourceType: "official",
   },
   {
     name: "The Hindu",
     siteUrl: "https://www.thehindu.com",
     // No dedicated gender/women feed exists — Society is the closest section.
     feedUrl: "https://www.thehindu.com/society/feeder/default.rss",
+    trustTier: "trusted",
+    sourceType: "mainstream",
   },
 ];
 
 const GOOGLE_NEWS_QUERY = "women India";
 const GOOGLE_NEWS_URL = `https://news.google.com/rss/search?q=${encodeURIComponent(GOOGLE_NEWS_QUERY)}&hl=en-IN&gl=IN&ceid=IN:en`;
+
+export function getSourceProfile(name: string) {
+  const source = SOURCES.find((candidate) => candidate.name === name);
+  if (source) return source;
+  if (name === "Google News") {
+    return {
+      name,
+      siteUrl: "https://news.google.com",
+      feedUrl: GOOGLE_NEWS_URL,
+      trustTier: "discovery" as const,
+      sourceType: "aggregator" as const,
+    };
+  }
+  return null;
+}
 
 export type FeedCandidateInput = {
   sourceName: string;

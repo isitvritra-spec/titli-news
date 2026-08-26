@@ -22,13 +22,15 @@ import { ReadingCard } from "./ReadingCard";
 export function CardStack({
   cards,
   onIndexChange,
+  height: heightOverride,
 }: {
   cards: Card[];
   onIndexChange?: (index: number) => void;
+  height?: number;
 }) {
   const { width, height: windowHeight } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
-  const height = windowHeight - tabBarHeight;
+  const height = heightOverride ?? windowHeight - tabBarHeight;
   return (
     <Carousel
       data={cards}
@@ -36,7 +38,7 @@ export function CardStack({
       style={{ width, height }}
       loop={false}
       onSnapToItem={onIndexChange}
-      renderItem={({ item }) => <ReadingCard card={item} />}
+      renderItem={({ item }) => <ReadingCard card={item} height={height} width={width} />}
     />
   );
 }

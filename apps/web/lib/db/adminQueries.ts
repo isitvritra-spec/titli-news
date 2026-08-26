@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 import { db } from "./client";
-import { cardReadings, cards, cardStateBreakdown, cardTopics, sources, topics } from "./schema";
+import { cardReadings, cards, cardStateBreakdown, cardTopics, pulseMetrics, sources, topics } from "./schema";
 
 export type CardInput = {
   cardType: "news" | "data";
+  status: "draft" | "published" | "archived";
   headline: string;
   slug: string;
   body: string;
@@ -17,6 +18,7 @@ export type CardInput = {
   contestedNote?: string;
   deepDiveBody?: string;
   topicIds: string[];
+  primaryTopicId: string;
   sourceId?: string;
   sourceDate?: string;
   metricValue?: number;
@@ -30,6 +32,8 @@ export type CardInput = {
 function cardRowFromInput(input: CardInput) {
   return {
     cardType: input.cardType,
+    status: input.status,
+    primaryTopicId: input.primaryTopicId,
     headline: input.headline,
     slug: input.slug,
     body: input.body,
@@ -39,6 +43,8 @@ function cardRowFromInput(input: CardInput) {
     imageHeight: input.imageHeight,
     imageBlurDataUrl: input.imageBlurDataUrl,
     publishedAt: input.publishedAt,
+    reviewedAt: input.status === "published" ? new Date().toISOString() : null,
+    updatedAt: new Date().toISOString(),
     isContested: input.isContested,
     contestedNote: input.isContested ? input.contestedNote ?? null : null,
     deepDiveBody: input.deepDiveBody || null,
@@ -94,6 +100,8 @@ export async function listCardsForAdmin() {
       headline: cards.headline,
       slug: cards.slug,
       publishedAt: cards.publishedAt,
+      status: cards.status,
+      primaryTopicId: cards.primaryTopicId,
     })
     .from(cards)
     .orderBy(cards.publishedAt);
@@ -130,10 +138,53 @@ export async function createTopic(input: { title: string; slug: string; shortDes
   return row.id;
 }
 
-export async function createSource(input: { name: string; kind: "news" | "data"; url: string; publisher?: string }) {
+export async function createSource(input: {
+  name: string;
+  kind: "news" | "data";
+  url: string;
+  publisher?: string;
+  trustTier?: "primary" | "trusted" | "discovery";
+  sourceType?: "official" | "specialist" | "mainstream" | "data" | "aggregator";
+  feedUrl?: string;
+  ingestMethod?: "rss" | "api" | "manual";
+  editorialNotes?: string;
+}) {
   const [row] = await db
     .insert(sources)
-    .values({ name: input.name, kind: input.kind, url: input.url, publisher: input.publisher || null })
+    .values({
+      name: input.name,
+      kind: input.kind,
+      url: input.url,
+      publisher: input.publisher || null,
+      trustTier: input.trustTier ?? "trusted",
+      sourceType: input.sourceType ?? (input.kind === "data" ? "data" : "mainstream"),
+      feedUrl: input.feedUrl || null,
+      ingestMethod: input.ingestMethod ?? "manual",
+      editorialNotes: input.editorialNotes || null,
+    })
     .returning({ id: sources.id });
   return row.id;
+}
+
+export async function listPulseMetricsForAdmin() {
+  return db.select().from(pulseMetrics).orderBy(pulseMetrics.sortOrder);
+}
+
+export async function updatePulseMetric(
+  key: string,
+  input: {
+    label: string;
+    value: number;
+    unit: string;
+    periodLabel: string;
+    sourceName: string;
+    sourceUrl: string;
+    methodology: string;
+    isActive: boolean;
+  }
+) {
+  await db
+    .update(pulseMetrics)
+    .set({ ...input, updatedAt: new Date().toISOString() })
+    .where(eq(pulseMetrics.key, key));
 }

@@ -9,6 +9,11 @@ const sourceInputSchema = z.object({
   kind: z.enum(["news", "data"]),
   url: z.string().url(),
   publisher: z.string().optional(),
+  trustTier: z.enum(["primary", "trusted", "discovery"]).optional(),
+  sourceType: z.enum(["official", "specialist", "mainstream", "data", "aggregator"]).optional(),
+  feedUrl: z.string().url().optional(),
+  ingestMethod: z.enum(["rss", "api", "manual"]).optional(),
+  editorialNotes: z.string().max(1000).optional(),
 });
 
 export async function GET() {

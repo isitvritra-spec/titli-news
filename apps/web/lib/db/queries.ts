@@ -1,8 +1,26 @@
-import { desc, eq, inArray } from "drizzle-orm";
-import type { Card, CardDetail, ImageAsset, Reading, SourceRef, StateReading, Topic, TopicRef } from "@repo/api-client";
+import { and, count, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import type {
+  Card,
+  CardDetail,
+  ImageAsset,
+  PulseMetric,
+  Reading,
+  SourceRef,
+  StateReading,
+  Topic,
+  TopicRef,
+} from "@repo/api-client";
 
 import { db } from "./client";
-import { cardReadings, cards, cardStateBreakdown, cardTopics, sources, topics } from "./schema";
+import {
+  cardReadings,
+  cards,
+  cardStateBreakdown,
+  cardTopics,
+  pulseMetrics,
+  sources,
+  topics,
+} from "./schema";
 
 type CardRow = typeof cards.$inferSelect;
 type SourceRow = typeof sources.$inferSelect;
@@ -36,7 +54,7 @@ async function hydrateCards(cardRows: CardRow[]): Promise<Card[]> {
 
   const [topicLinks, sourceRows, readingRows] = await Promise.all([
     db
-      .select({ cardId: cardTopics.cardId, title: topics.title, slug: topics.slug })
+      .select({ cardId: cardTopics.cardId, topicId: topics.id, title: topics.title, slug: topics.slug })
       .from(cardTopics)
       .innerJoin(topics, eq(cardTopics.topicId, topics.id))
       .where(inArray(cardTopics.cardId, cardIds)),
@@ -61,13 +79,20 @@ async function hydrateCards(cardRows: CardRow[]): Promise<Card[]> {
   }
 
   return cardRows.map((row): Card => {
+    const cardTopicRefs = topicsByCard.get(row.id) ?? [];
+    const primaryLink = topicLinks.find(
+      (link) => link.cardId === row.id && link.topicId === row.primaryTopicId
+    );
     const base = {
       id: row.id,
       headline: row.headline,
       slug: row.slug,
       body: row.body,
       image: toImageAsset(row),
-      topics: topicsByCard.get(row.id) ?? [],
+      topics: cardTopicRefs,
+      primaryGenre: primaryLink
+        ? { title: primaryLink.title, slug: primaryLink.slug }
+        : cardTopicRefs[0],
       publishedAt: row.publishedAt,
       isContested: row.isContested,
       contestedNote: row.contestedNote ?? undefined,
@@ -111,14 +136,24 @@ export async function getFeed(options?: { topicSlugs?: string[] }): Promise<Card
   const rows = await db
     .select()
     .from(cards)
-    .where(cardIdsFilter ? inArray(cards.id, cardIdsFilter) : undefined)
+    .where(
+      and(
+        eq(cards.status, "published"),
+        lte(cards.publishedAt, new Date().toISOString()),
+        cardIdsFilter ? inArray(cards.id, cardIdsFilter) : undefined
+      )
+    )
     .orderBy(desc(cards.publishedAt));
 
   return hydrateCards(rows);
 }
 
 export async function getCardBySlug(slug: string): Promise<CardDetail | null> {
-  const [row] = await db.select().from(cards).where(eq(cards.slug, slug)).limit(1);
+  const [row] = await db
+    .select()
+    .from(cards)
+    .where(and(eq(cards.slug, slug), eq(cards.status, "published")))
+    .limit(1);
   if (!row) return null;
 
   const [[card], stateRows] = await Promise.all([
@@ -141,7 +176,10 @@ export async function getCardBySlug(slug: string): Promise<CardDetail | null> {
 }
 
 export async function getAllCardSlugs(): Promise<string[]> {
-  const rows = await db.select({ slug: cards.slug }).from(cards);
+  const rows = await db
+    .select({ slug: cards.slug })
+    .from(cards)
+    .where(eq(cards.status, "published"));
   return rows.map((r) => r.slug);
 }
 
@@ -175,4 +213,61 @@ export async function getTopicBySlug(slug: string): Promise<Topic | null> {
 
 export async function getAllSources() {
   return db.select().from(sources).orderBy(sources.name);
+}
+
+export async function getPulse(): Promise<PulseMetric[]> {
+  const metricRows = await db
+    .select()
+    .from(pulseMetrics)
+    .where(eq(pulseMetrics.isActive, true))
+    .orderBy(pulseMetrics.sortOrder);
+
+  const [winsTopic] = await db
+    .select({ id: topics.id })
+    .from(topics)
+    .where(eq(topics.slug, "womens-wins"))
+    .limit(1);
+
+  const year = new Date().getUTCFullYear();
+  const [{ total: winsTotal }] = winsTopic
+    ? await db
+        .select({ total: count() })
+        .from(cards)
+        .where(
+          and(
+            eq(cards.status, "published"),
+            eq(cards.primaryTopicId, winsTopic.id),
+            gte(cards.publishedAt, `${year}-01-01T00:00:00.000Z`)
+          )
+        )
+    : [{ total: 0 }];
+
+  const stored: PulseMetric[] = metricRows.map((row) => ({
+    key: row.key,
+    kind: row.kind,
+    label: row.label,
+    value: row.value,
+    unit: row.unit,
+    periodLabel: row.periodLabel,
+    sourceName: row.sourceName,
+    sourceUrl: row.sourceUrl,
+    methodology: row.methodology,
+    updatedAt: row.updatedAt,
+  }));
+
+  return [
+    ...stored,
+    {
+      key: `womens-wins-${year}`,
+      kind: "progress",
+      label: "Women's Wins",
+      value: winsTotal,
+      unit: "verified achievements",
+      periodLabel: String(year),
+      sourceName: "Titli editorial desk",
+      sourceUrl: "/topic/womens-wins",
+      methodology: "Counts published Titli cards whose primary genre is Women's Wins.",
+      updatedAt: new Date().toISOString(),
+    },
+  ];
 }

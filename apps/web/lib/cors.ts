@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 
 /**
- * These three routes (feed, cards/[slug], topics) are the public,
- * unauthenticated read API the README already documents as existing for
- * apps/mobile's HTTP client — cross-origin by design. Native fetch on
+ * Public feed, story, topic, Pulse, and analytics routes support the
+ * mobile HTTP client cross-origin by design. Native fetch on
  * iOS/Android never enforces CORS, so this only started mattering once the
  * mobile app could also run as a web build (localhost:8081) reading from
  * the site's own origin (e.g. 192.168.29.148:3000).
@@ -14,7 +13,8 @@ import { NextResponse } from "next/server";
  */
 export const PUBLIC_CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
 } as const;
 
 export function withCors(response: NextResponse): NextResponse {

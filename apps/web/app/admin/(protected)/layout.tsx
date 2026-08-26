@@ -24,6 +24,15 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
           <Link href="/admin/topics" className="font-headline font-medium text-label text-muted hover:text-ink">
             Topics
           </Link>
+          <Link href="/admin/sources" className="font-headline font-medium text-label text-muted hover:text-ink">
+            Sources
+          </Link>
+          <Link href="/admin/pulse" className="font-headline font-medium text-label text-muted hover:text-ink">
+            Pulse
+          </Link>
+          <Link href="/admin/analytics" className="font-headline font-medium text-label text-muted hover:text-ink">
+            Analytics
+          </Link>
           <LogoutButton />
         </nav>
       </header>

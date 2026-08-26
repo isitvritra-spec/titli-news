@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -10,6 +11,7 @@ import { api } from "../../lib/api";
 import { useSavedCardIds, useToggleSaved } from "../../lib/savedCards";
 import { ContestedBadge } from "../../components/ContestedBadge";
 import { ChevronLeftIcon, BookmarkIcon } from "../../components/icons";
+import { trackEvent } from "../../lib/analytics";
 
 /**
  * Expo Router's per-route error boundary convention. Defense-in-depth: if
@@ -39,6 +41,10 @@ export default function CardDetail() {
     queryFn: () => api.getCardBySlug(slug),
     enabled: Boolean(slug),
   });
+
+  useEffect(() => {
+    if (card) trackEvent("card_detail_open", { cardId: card.id });
+  }, [card]);
 
   if (isPending) {
     return (
@@ -113,9 +119,10 @@ export default function CardDetail() {
             ))
           ) : (
             <Pressable
-              onPress={() =>
-                Linking.openURL(isData ? card.surveySource.url : card.source.url)
-              }
+              onPress={() => {
+                trackEvent("source_open", { cardId: card.id });
+                void Linking.openURL(isData ? card.surveySource.url : card.source.url);
+              }}
               className="mt-6 self-start rounded-full border border-gold px-4 py-2"
             >
               <Text className="text-gold font-body">
@@ -177,7 +184,10 @@ export default function CardDetail() {
       </Pressable>
 
       <Pressable
-        onPress={() => toggleSaved(card.id)}
+        onPress={() => {
+          toggleSaved(card.id);
+          trackEvent(isSaved ? "card_unsave" : "card_save", { cardId: card.id });
+        }}
         aria-label={isSaved ? "Remove from saved" : "Save"}
         className="absolute top-14 right-5 h-9 w-9 items-center justify-center rounded-full bg-pressed"
       >

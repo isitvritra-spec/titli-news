@@ -17,6 +17,7 @@ import { queryClient, asyncStoragePersister } from "../lib/queryClient";
 import { useRefetchOnForeground } from "../lib/useRefetchOnForeground";
 import { useHasSeenOnboarding } from "../lib/onboarding";
 import { AnimatedSplash } from "../components/AnimatedSplash";
+import { flushEvents, trackEvent } from "../lib/analytics";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,6 +51,11 @@ export default function RootLayout() {
   });
 
   useRefetchOnForeground();
+
+  useEffect(() => {
+    trackEvent("app_open");
+    void flushEvents();
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded) {

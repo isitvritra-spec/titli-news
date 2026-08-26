@@ -10,6 +10,8 @@ import { useSavedCardIds, useToggleSaved } from "../lib/savedCards";
 import { TrendBadge } from "./TrendBadge";
 import { ContestedBadge } from "./ContestedBadge";
 import { BookmarkIcon, ShareIcon } from "./icons";
+import { trackEvent } from "../lib/analytics";
+import { cardShareUrl } from "../lib/links";
 
 /**
  * The one card layout for both card types (per the brief: "two card types,
@@ -23,11 +25,20 @@ import { BookmarkIcon, ShareIcon } from "./icons";
  * (this only renders on the Feed tab, above the bar, not full-window) —
  * same reasoning as CardStack.tsx, kept in sync since both need it.
  */
-export function ReadingCard({ card }: { card: Card }) {
+export function ReadingCard({
+  card,
+  height: heightOverride,
+  width: widthOverride,
+}: {
+  card: Card;
+  height?: number;
+  width?: number;
+}) {
   const router = useRouter();
-  const { width, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
-  const height = windowHeight - tabBarHeight;
+  const width = widthOverride ?? windowWidth;
+  const height = heightOverride ?? windowHeight - tabBarHeight;
   /** "Top ~40% of the card" per design-guide.md. */
   const imageHeight = Math.round(height * 0.4);
   const isData = isDataCard(card);
@@ -107,14 +118,20 @@ export function ReadingCard({ card }: { card: Card }) {
           </Text>
           <View className="flex-row items-center gap-4">
             <Pressable
-              onPress={() => toggleSaved(card.id)}
+              onPress={() => {
+                toggleSaved(card.id);
+                trackEvent(isSaved ? "card_unsave" : "card_save", { cardId: card.id });
+              }}
               aria-label={isSaved ? "Remove from saved" : "Save"}
               hitSlop={8}
             >
               <BookmarkIcon size={18} color={isSaved ? colors.gold : colors.muted} active={isSaved} />
             </Pressable>
             <Pressable
-              onPress={() => Share.share({ message: card.headline })}
+              onPress={async () => {
+                await Share.share({ message: `${card.headline}\n${cardShareUrl(card.slug)}` });
+                trackEvent("card_share", { cardId: card.id });
+              }}
               aria-label="Share"
               hitSlop={8}
             >

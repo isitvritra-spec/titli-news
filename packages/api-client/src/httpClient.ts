@@ -1,4 +1,4 @@
-import type { Card, CardDetail, Topic } from "./types";
+import type { AnalyticsEventInput, Card, CardDetail, PulseMetric, Topic } from "./types";
 
 /**
  * The one HTTP client, used by apps/mobile (talking to apps/web's API
@@ -22,6 +22,18 @@ export function createApiClient(baseUrl: string) {
     return (await res.json()) as T;
   }
 
+  async function post<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`API request failed (${res.status}): ${path}`);
+    }
+    return (await res.json()) as T;
+  }
+
   return {
     getFeed(options?: { topicSlugs?: string[] }): Promise<Card[]> {
       const qs = options?.topicSlugs?.length
@@ -36,6 +48,12 @@ export function createApiClient(baseUrl: string) {
     },
     getTopics(): Promise<Topic[]> {
       return request<Topic[]>(`/api/topics`);
+    },
+    getPulse(): Promise<PulseMetric[]> {
+      return request<PulseMetric[]>(`/api/pulse`);
+    },
+    trackEvents(events: AnalyticsEventInput[]): Promise<{ accepted: number }> {
+      return post<{ accepted: number }>(`/api/events/batch`, { events });
     },
   };
 }

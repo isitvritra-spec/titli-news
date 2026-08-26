@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "./client";
 import { feedCandidates, sources } from "./schema";
-import { fetchAllCandidates, type FeedCandidateInput } from "../rss";
+import { fetchAllCandidates, getSourceProfile, type FeedCandidateInput } from "../rss";
 import { generatePlaceholderImage, saveImageFromUrl } from "../images";
 
 /** Pulls all sources, skips anything already stored (dedup by link), inserts the rest. Returns how many were actually new. */
@@ -91,7 +91,15 @@ export async function prepareDraft(id: string): Promise<{ sourceId: string } | n
 
   const [created] = await db
     .insert(sources)
-    .values({ name: candidate.sourceName, kind: "news", url: candidate.sourceSiteUrl })
+    .values({
+      name: candidate.sourceName,
+      kind: "news",
+      url: candidate.sourceSiteUrl,
+      trustTier: getSourceProfile(candidate.sourceName)?.trustTier ?? "discovery",
+      sourceType: getSourceProfile(candidate.sourceName)?.sourceType ?? "aggregator",
+      feedUrl: getSourceProfile(candidate.sourceName)?.feedUrl ?? null,
+      ingestMethod: getSourceProfile(candidate.sourceName) ? "rss" : "manual",
+    })
     .returning({ id: sources.id });
 
   return { sourceId: created.id };

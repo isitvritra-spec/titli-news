@@ -10,6 +10,7 @@ export type TopicOption = { id: string; title: string };
 
 export type CardFormInitialData = {
   cardType: "news" | "data";
+  status: "draft" | "published" | "archived";
   headline: string;
   slug: string;
   body: string;
@@ -23,6 +24,7 @@ export type CardFormInitialData = {
   contestedNote: string | null;
   deepDiveBody: string | null;
   topicIds: string[];
+  primaryTopicId: string | null;
   sourceId: string | null;
   sourceDate: string | null;
   metricValue: number | null;
@@ -64,6 +66,9 @@ export function CardForm({
   const [sourceList, setSourceList] = useState(sources);
 
   const [cardType, setCardType] = useState<"news" | "data">(initialData?.cardType ?? "news");
+  const [status, setStatus] = useState<"draft" | "published" | "archived">(
+    initialData?.status ?? "draft"
+  );
   const [headline, setHeadline] = useState(initialData?.headline ?? "");
   const [slug, setSlug] = useState(initialData?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
@@ -79,6 +84,7 @@ export function CardForm({
   const [contestedNote, setContestedNote] = useState(initialData?.contestedNote ?? "");
   const [deepDiveBody, setDeepDiveBody] = useState(initialData?.deepDiveBody ?? "");
   const [topicIds, setTopicIds] = useState<string[]>(initialData?.topicIds ?? []);
+  const [primaryTopicId, setPrimaryTopicId] = useState(initialData?.primaryTopicId ?? "");
 
   const [sourceId, setSourceId] = useState(initialData?.sourceId ?? "");
   const [sourceDate, setSourceDate] = useState(initialData?.sourceDate ?? "");
@@ -162,7 +168,15 @@ export function CardForm({
   }
 
   function toggleTopic(id: string) {
-    setTopicIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+    setTopicIds((prev) => {
+      if (prev.includes(id)) {
+        const next = prev.filter((topicId) => topicId !== id);
+        if (primaryTopicId === id) setPrimaryTopicId(next[0] ?? "");
+        return next;
+      }
+      if (!primaryTopicId) setPrimaryTopicId(id);
+      return [...prev, id];
+    });
   }
 
   async function onSubmit(event: React.FormEvent) {
@@ -171,6 +185,7 @@ export function CardForm({
 
     const payload = {
       cardType,
+      status,
       headline,
       slug,
       body,
@@ -184,6 +199,7 @@ export function CardForm({
       contestedNote: isContested ? contestedNote : undefined,
       deepDiveBody: deepDiveBody || undefined,
       topicIds,
+      primaryTopicId,
       sourceId: cardType === "news" ? sourceId : undefined,
       sourceDate: cardType === "news" ? sourceDate : undefined,
       metricValue: cardType === "data" && metricValue ? Number(metricValue) : undefined,
@@ -300,6 +316,42 @@ export function CardForm({
             </label>
           ))}
         </div>
+      </Field>
+
+      <Field label="Primary genre">
+        <select
+          value={primaryTopicId}
+          onChange={(event) => {
+            const id = event.target.value;
+            setPrimaryTopicId(id);
+            if (id && !topicIds.includes(id)) setTopicIds((current) => [...current, id]);
+          }}
+          className={inputClass}
+        >
+          <option value="">Select the main genre…</option>
+          {topics.map((topic) => (
+            <option key={topic.id} value={topic.id}>
+              {topic.title}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-caption text-muted">
+          Analytics credits this card to one primary genre; other topics remain useful tags.
+        </p>
+      </Field>
+
+      <Field label="Publishing status">
+        <select
+          value={status}
+          onChange={(event) =>
+            setStatus(event.target.value as "draft" | "published" | "archived")
+          }
+          className={inputClass}
+        >
+          <option value="draft">Draft — private</option>
+          <option value="published">Published — visible to readers</option>
+          <option value="archived">Archived — hidden from readers</option>
+        </select>
       </Field>
 
       <Field label="Published at">
@@ -484,7 +536,13 @@ export function CardForm({
         disabled={submitting}
         className="rounded-full bg-gold px-5 py-2 font-headline font-medium text-label text-bg disabled:opacity-50"
       >
-        {submitting ? "Saving…" : mode === "create" ? "Publish card" : "Save changes"}
+        {submitting
+          ? "Saving…"
+          : status === "published"
+            ? mode === "create"
+              ? "Publish card"
+              : "Save and publish"
+            : "Save card"}
       </button>
     </form>
   );

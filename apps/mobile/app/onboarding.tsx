@@ -10,18 +10,18 @@ import { ButterflyMark, BarChartIcon, TagIcon } from "../components/icons";
 const SLIDES = [
   {
     Icon: (props: { size: number; color: string }) => <ButterflyMark {...props} />,
-    title: "Feminism news, in bite-size cards",
-    body: "Titli pairs short news with real Indian gender data — one card, one screen, about a minute a day.",
+    title: "News and wellness for Indian women",
+    body: "Titli brings verified stories about health, safety, work, money and women's achievements — one clear card at a time.",
   },
   {
     Icon: (props: { size: number; color: string }) => <BarChartIcon {...props} />,
-    title: "Every number shows its source",
-    body: "Data cards always carry the year and where the number is from. If a stat can't be sourced, it doesn't run.",
+    title: "Every claim shows its source",
+    body: "News and data cards show where the information came from. If we cannot verify it, we do not publish it.",
   },
   {
     Icon: (props: { size: number; color: string }) => <TagIcon {...props} />,
-    title: "Pick what you follow",
-    body: "Choose topics like work, safety or politics, and your feed shows only those.",
+    title: "Choose what matters to you",
+    body: "Follow health, safety, work, education, grassroots stories or women's wins, and shape your own feed.",
   },
 ];
 

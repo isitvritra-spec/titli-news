@@ -55,33 +55,39 @@ async function makePlaceholderImage(seed: number): Promise<{
 async function main() {
   console.log("Seeding...");
 
-  const topicRows = await db
+  await db
     .insert(topics)
     .values([
-      { title: "Gender-Based Violence", slug: "gender-based-violence", sortOrder: 0, shortDescription: "Domestic and sexual violence, legal response" },
-      { title: "Work & Economy", slug: "work-economy", sortOrder: 1, shortDescription: "Employment, wages, unpaid labour" },
-      { title: "Health & Reproductive Rights", slug: "health-reproductive-rights", sortOrder: 2, shortDescription: "Maternal health, bodily autonomy" },
-      { title: "Education", slug: "education", sortOrder: 3, shortDescription: "Enrolment, dropout, literacy" },
-      { title: "Law & Policy", slug: "law-policy", sortOrder: 4, shortDescription: "Legislation, courts, schemes" },
-      { title: "Representation", slug: "representation", sortOrder: 5, shortDescription: "Politics, leadership, visibility" },
+      { id: "genre-health-wellness", title: "Health & Wellness", slug: "health-wellness", sortOrder: 0, shortDescription: "Physical, reproductive and mental wellbeing" },
+      { id: "genre-safety-justice", title: "Safety & Justice", slug: "safety-justice", sortOrder: 1, shortDescription: "Safety, violence, policing and justice" },
+      { id: "genre-work-money", title: "Work & Money", slug: "work-money", sortOrder: 2, shortDescription: "Jobs, wages, business and financial independence" },
+      { id: "genre-rights-policy", title: "Rights & Policy", slug: "rights-policy", sortOrder: 3, shortDescription: "Laws, courts and schemes affecting women" },
+      { id: "genre-education-skills", title: "Education & Skills", slug: "education-skills", sortOrder: 4, shortDescription: "Learning, training and opportunity" },
+      { id: "genre-womens-wins", title: "Women's Wins", slug: "womens-wins", sortOrder: 5, shortDescription: "Verified achievements by women across India" },
+      { id: "genre-rural-grassroots", title: "Rural & Grassroots", slug: "rural-grassroots", sortOrder: 6, shortDescription: "Women-led change beyond metropolitan India" },
+      { id: "genre-sports-science-culture", title: "Sports, Science & Culture", slug: "sports-science-culture", sortOrder: 7, shortDescription: "Women shaping sport, research and culture" },
     ])
-    .returning();
+    .onConflictDoNothing();
+
+  const topicRows = await db.select().from(topics);
 
   const topicBySlug = Object.fromEntries(topicRows.map((t) => [t.slug, t.id]));
 
-  const sourceRows = await db
+  await db
     .insert(sources)
     .values([
-      { name: "NFHS", kind: "data", url: "https://www.nfhsiips.in", publisher: "Ministry of Health and Family Welfare" },
-      { name: "PLFS", kind: "data", url: "https://www.mospi.gov.in", publisher: "Ministry of Statistics and Programme Implementation" },
-      { name: "Feminism in India", kind: "news", url: "https://feminisminindia.com" },
-      { name: "Behanbox", kind: "news", url: "https://behanbox.com" },
-      { name: "IndiaSpend", kind: "news", url: "https://www.indiaspend.com" },
-      { name: "The Hindu", kind: "news", url: "https://www.thehindu.com" },
-      { name: "Scroll.in", kind: "news", url: "https://scroll.in" },
-      { name: "PIB", kind: "news", url: "https://pib.gov.in" },
+      { id: "source-nfhs", name: "NFHS", kind: "data", url: "https://www.nfhsiips.in", publisher: "Ministry of Health and Family Welfare", trustTier: "primary" as const, sourceType: "official" as const },
+      { id: "source-plfs", name: "PLFS", kind: "data", url: "https://www.mospi.gov.in", publisher: "Ministry of Statistics and Programme Implementation", trustTier: "primary" as const, sourceType: "official" as const },
+      { id: "source-fii", name: "Feminism in India", kind: "news", url: "https://feminisminindia.com", trustTier: "trusted" as const, sourceType: "specialist" as const, feedUrl: "https://feminisminindia.com/feed/", ingestMethod: "rss" as const },
+      { id: "source-behanbox", name: "BehanBox", kind: "news", url: "https://behanbox.com", trustTier: "trusted" as const, sourceType: "specialist" as const, feedUrl: "https://behanbox.com/feed/", ingestMethod: "rss" as const },
+      { id: "source-isignal", name: "ISignal", kind: "news", url: "https://www.isignal.in", trustTier: "trusted" as const, sourceType: "data" as const, feedUrl: "https://www.isignal.in/feeds.xml", ingestMethod: "rss" as const },
+      { id: "source-the-hindu", name: "The Hindu", kind: "news", url: "https://www.thehindu.com", trustTier: "trusted" as const, sourceType: "mainstream" as const, feedUrl: "https://www.thehindu.com/society/feeder/default.rss", ingestMethod: "rss" as const },
+      { id: "source-scroll", name: "Scroll.in", kind: "news", url: "https://scroll.in", trustTier: "trusted" as const, sourceType: "mainstream" as const, feedUrl: "https://feeds.feedburner.com/ScrollinArticles.rss", ingestMethod: "rss" as const },
+      { id: "source-pib", name: "PIB", kind: "news", url: "https://pib.gov.in", trustTier: "primary" as const, sourceType: "official" as const, feedUrl: "https://archive.pib.gov.in/newsite/rssenglish.aspx", ingestMethod: "rss" as const },
     ])
-    .returning();
+    .onConflictDoNothing();
+
+  const sourceRows = await db.select().from(sources);
 
   const sourceByName = Object.fromEntries(sourceRows.map((s) => [s.name, s.id]));
 
@@ -98,7 +104,7 @@ async function main() {
       headline: "29.3% of ever-married women have experienced spousal violence",
       body:
         "Nearly 3 in 10 ever-married women aged 18–49 report physical or sexual violence from a spouse, per NFHS-5 (2019–21). That's down only slightly from NFHS-4 — progress on this number has been slow, and it doesn't count violence outside marriage.",
-      topics: ["gender-based-violence", "law-policy"],
+      topics: ["safety-justice", "rights-policy"],
       surveySource: "NFHS",
       readings: [
         { year: 2016, value: 31.2 },
@@ -120,7 +126,7 @@ async function main() {
       headline: "Child marriage before 18, among women 20–24, has fallen to 20.1%",
       body:
         "One in five women aged 20–24 was married before turning 18, per NFHS-6 (2023–24) — down from 23.3% in NFHS-5 and 26.8% in NFHS-4. Real progress, but still roughly 1 in 5 girls married as children.",
-      topics: ["gender-based-violence", "law-policy", "health-reproductive-rights"],
+      topics: ["safety-justice", "rights-policy", "health-wellness"],
       surveySource: "NFHS",
       readings: [
         { year: 2016, value: 26.8 },
@@ -134,7 +140,7 @@ async function main() {
       headline: "Women's labour force participation jumped to 41.7%",
       body:
         "PLFS 2023–24 puts female labour force participation at 41.7%, up from 23.3% in 2017–18 — a sharp reversal after years of decline. Most of the rise is in rural areas and unpaid or self-employed work, not formal jobs.",
-      topics: ["work-economy"],
+      topics: ["work-money"],
       surveySource: "PLFS",
       readings: [
         { year: 2012, value: 31.2 },
@@ -150,7 +156,7 @@ async function main() {
       headline: "Rural women's workforce participation nearly doubled in six years",
       body:
         "In rural India specifically, female labour force participation rose from 21.1% (2017–18) to 35.6% (2023–24) per PLFS — even faster than the national trend. Economists are still debating how much reflects real opportunity versus rural distress.",
-      topics: ["work-economy"],
+      topics: ["work-money"],
       surveySource: "PLFS",
       readings: [
         { year: 2018, value: 21.1 },
@@ -175,6 +181,8 @@ async function main() {
       .insert(cards)
       .values({
         cardType: "data",
+        status: "published",
+        primaryTopicId: topicBySlug[dc.topics[0]],
         headline: dc.headline,
         slug,
         body: dc.body,
@@ -184,6 +192,8 @@ async function main() {
         imageHeight: img.height,
         imageBlurDataUrl: img.blurDataURL,
         publishedAt: new Date().toISOString(),
+        reviewedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         isContested: dc.isContested,
         contestedNote: (dc as { contestedNote?: string }).contestedNote ?? null,
         surveySourceId: sourceByName[dc.surveySource],
@@ -216,21 +226,21 @@ async function main() {
       headline: "The POSH Act turns a decade old — enforcement still lags in practice",
       body:
         "India's workplace sexual harassment law (POSH Act, 2013) requires every employer with 10+ staff to set up an Internal Committee. Labour researchers and reporters have repeatedly found many companies, especially smaller ones, still haven't — leaving the law's protections unevenly available.",
-      topics: ["work-economy", "law-policy"],
+      topics: ["work-money", "rights-policy"],
       source: "The Hindu",
     },
     {
       headline: "Nirbhaya Fund utilisation remains a recurring flashpoint in Parliament",
       body:
         "Set up after the 2012 Delhi gang-rape case to fund women's safety projects, the Nirbhaya Fund has faced repeated criticism from parliamentary committees and RTI-based reporting over slow disbursal and underused allocations across states.",
-      topics: ["gender-based-violence", "law-policy"],
-      source: "IndiaSpend",
+      topics: ["safety-justice", "rights-policy"],
+      source: "ISignal",
     },
     {
       headline: "Marital rape exception remains under judicial review",
       body:
         "Indian law still exempts a husband from rape charges for non-consensual sex with his wife. The exception has been challenged in multiple High Court and Supreme Court cases; as of now, the exception stands, with the matter still pending final resolution.",
-      topics: ["gender-based-violence", "law-policy"],
+      topics: ["safety-justice", "rights-policy"],
       source: "Scroll.in",
       isContested: true,
       contestedNote:
@@ -240,36 +250,36 @@ async function main() {
       headline: "Menstrual leave policy remains patchy across Indian workplaces",
       body:
         "A handful of states and companies have introduced menstrual leave in recent years, while most workplaces offer none. The debate continues between those who see it as overdue recognition and those who worry it could affect hiring of women — the policy landscape stays fragmented.",
-      topics: ["work-economy", "health-reproductive-rights"],
+      topics: ["work-money", "health-wellness"],
       source: "Feminism in India",
     },
     {
       headline: "Maternity Benefit Act's 26-week leave rarely reaches informal workers",
       body:
         "India's Maternity Benefit Act guarantees 26 weeks of paid leave — but it legally applies only to formal-sector establishments. The vast majority of Indian women work informally, where the guarantee mostly doesn't reach them at all.",
-      topics: ["work-economy", "law-policy"],
-      source: "Behanbox",
+      topics: ["work-money", "rights-policy"],
+      source: "BehanBox",
     },
     {
       headline: "Women's political reservation law awaits delimitation to take effect",
       body:
         "The Nari Shakti Vandan Adhiniyam reserves a third of Lok Sabha and state assembly seats for women — but its rollout is tied to the next delimitation and census, meaning implementation is still years away by the law's own text.",
-      topics: ["representation", "law-policy"],
+      topics: ["rights-policy"],
       source: "The Hindu",
     },
     {
       headline: "Two-finger test banned, but reporting shows the practice persists",
       body:
         "The Supreme Court outlawed the so-called 'two-finger test' in sexual assault medical exams in 2013, calling it unconstitutional. Investigative reporting since has repeatedly found hospitals in several states still using it, despite the ban.",
-      topics: ["gender-based-violence", "health-reproductive-rights"],
-      source: "Behanbox",
+      topics: ["safety-justice", "health-wellness"],
+      source: "BehanBox",
     },
     {
       headline: "Anganwadi and ASHA workers, mostly women, still classified as 'volunteers'",
       body:
         "Millions of frontline health and childcare workers — nearly all women — are paid fixed 'honorariums' rather than wages, since they're officially classified as volunteers, not employees. Unions have long pushed for formal worker status; the classification hasn't changed.",
-      topics: ["work-economy", "health-reproductive-rights"],
-      source: "IndiaSpend",
+      topics: ["work-money", "health-wellness"],
+      source: "ISignal",
     },
   ];
 
@@ -285,6 +295,8 @@ async function main() {
       .insert(cards)
       .values({
         cardType: "news",
+        status: "published",
+        primaryTopicId: topicBySlug[nc.topics[0]],
         headline: nc.headline,
         slug,
         body: nc.body,
@@ -294,6 +306,8 @@ async function main() {
         imageHeight: img.height,
         imageBlurDataUrl: img.blurDataURL,
         publishedAt: new Date().toISOString(),
+        reviewedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         isContested: nc.isContested ?? false,
         contestedNote: nc.contestedNote ?? null,
         sourceId: sourceByName[nc.source],

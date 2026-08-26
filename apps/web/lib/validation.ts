@@ -11,6 +11,7 @@ const stateBreakdownSchema = z.object({
 export const cardInputSchema = z
   .object({
     cardType: z.enum(["news", "data"]),
+    status: z.enum(["draft", "published", "archived"]),
     headline: z.string().min(1, "Headline is required"),
     slug: z
       .string()
@@ -27,6 +28,7 @@ export const cardInputSchema = z
     contestedNote: z.string().optional(),
     deepDiveBody: z.string().optional(),
     topicIds: z.array(z.string()).min(1, "Pick at least one topic"),
+    primaryTopicId: z.string().min(1, "Pick a primary genre"),
     sourceId: z.string().optional(),
     sourceDate: z.string().optional(),
     metricValue: z.number().optional(),
@@ -53,6 +55,14 @@ export const cardInputSchema = z
       if (!data.sourceDate) {
         ctx.addIssue({ code: "custom", message: "Source date is required for news cards", path: ["sourceDate"] });
       }
+    }
+
+    if (!data.topicIds.includes(data.primaryTopicId)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "The primary genre must also be selected as a topic",
+        path: ["primaryTopicId"],
+      });
     }
 
     if (data.cardType === "data") {

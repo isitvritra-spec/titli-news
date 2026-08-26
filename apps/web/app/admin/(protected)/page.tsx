@@ -25,12 +25,21 @@ export default async function AdminDashboard() {
               className="flex items-center justify-between border-b border-hairline py-3"
             >
               <div>
+                <span
+                  className={`mr-2 rounded-full border px-2 py-0.5 text-caption uppercase tracking-wide ${
+                    card.status === "published"
+                      ? "border-gold text-gold"
+                      : "border-hairline text-muted"
+                  }`}
+                >
+                  {card.status}
+                </span>
                 <span className="text-caption uppercase tracking-wide text-muted mr-2">
                   {card.cardType}
                 </span>
                 <span className="text-ink">{card.headline}</span>
                 <span className="block text-caption text-muted mt-0.5">
-                  {formatCardDate(card.publishedAt)}
+                  {card.status === "published" ? "Published" : "Updated"} {formatCardDate(card.publishedAt)}
                 </span>
               </div>
               <div className="flex items-center gap-3">

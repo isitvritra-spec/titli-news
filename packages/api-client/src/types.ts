@@ -37,6 +37,8 @@ type CardBase = {
   body: string;
   image: ImageAsset;
   topics: TopicRef[];
+  /** Exactly one canonical genre for analytics and future recommendations. */
+  primaryGenre?: TopicRef;
   publishedAt: string;
   isContested?: boolean;
   contestedNote?: string;
@@ -71,6 +73,43 @@ export type Topic = {
   slug: string;
   shortDescription?: string;
   sortOrder: number;
+};
+
+export type PulseMetric = {
+  key: string;
+  kind: "safety" | "progress";
+  label: string;
+  value: number;
+  unit: string;
+  periodLabel: string;
+  sourceName: string;
+  sourceUrl: string;
+  methodology: string;
+  updatedAt: string;
+};
+
+export type AnalyticsEventType =
+  | "app_open"
+  | "card_view"
+  | "card_dwell"
+  | "card_detail_open"
+  | "card_save"
+  | "card_unsave"
+  | "card_share"
+  | "source_open"
+  | "genre_follow"
+  | "genre_unfollow"
+  | "pulse_open";
+
+export type AnalyticsEventInput = {
+  installationId: string;
+  sessionId: string;
+  eventType: AnalyticsEventType;
+  cardId?: string;
+  topicSlug?: string;
+  durationMs?: number;
+  position?: number;
+  occurredAt: string;
 };
 
 export function isDataCard(card: Card): card is DataCard {

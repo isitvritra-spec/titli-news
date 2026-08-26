@@ -5,6 +5,7 @@ import { colors } from "@repo/tokens";
 import { api } from "../../lib/api";
 import { useSelectedTopics, useToggleTopic } from "../../lib/topicSelection";
 import { CheckIcon } from "../../components/icons";
+import { trackEvent } from "../../lib/analytics";
 
 export default function Topics() {
   const { data: topics, isPending } = useQuery({
@@ -30,7 +31,12 @@ export default function Topics() {
             return (
               <Pressable
                 key={topic.id}
-                onPress={() => toggle(topic.slug)}
+                onPress={() => {
+                  toggle(topic.slug);
+                  trackEvent(isOn ? "genre_unfollow" : "genre_follow", {
+                    topicSlug: topic.slug,
+                  });
+                }}
                 aria-selected={isOn}
                 className="flex-row items-center justify-between px-4 py-4 border-b border-hairline"
               >
