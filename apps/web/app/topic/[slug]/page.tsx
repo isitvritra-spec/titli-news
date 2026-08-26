@@ -4,7 +4,7 @@ import { getFeed, getTopicBySlug, getTopics } from "../../../lib/db/queries";
 import { FeedScroll } from "../../../components/FeedScroll";
 import { FeedHeader } from "../../../components/FeedHeader";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
   const topics = await getTopics();

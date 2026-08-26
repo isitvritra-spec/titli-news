@@ -2,8 +2,7 @@ import { getFeed } from "../lib/db/queries";
 import { FeedScroll } from "../components/FeedScroll";
 import { FeedHeader } from "../components/FeedHeader";
 
-/** Safety-net time-based refresh; the admin UI triggers on-demand revalidation on every write (see app/api/admin/cards/route.ts). */
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const cards = await getFeed();

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getTopics } from "../../lib/db/queries";
 import { BrandMark } from "../../components/BrandMark";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function TopicsPage() {
   const topics = await getTopics();

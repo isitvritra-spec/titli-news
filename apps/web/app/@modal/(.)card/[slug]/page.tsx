@@ -3,6 +3,8 @@ import { getCardBySlug } from "../../../../lib/db/queries";
 import { CardDetailContent } from "../../../../components/CardDetailContent";
 import { CardModalShell } from "../../../../components/CardModalShell";
 
+export const dynamic = "force-dynamic";
+
 export default async function CardModalPage(props: PageProps<"/card/[slug]">) {
   const { slug } = await props.params;
   const card = await getCardBySlug(slug);
