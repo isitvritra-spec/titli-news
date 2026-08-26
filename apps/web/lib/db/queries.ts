@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray } from "drizzle-orm";
 import type {
   Card,
   CardDetail,
@@ -137,11 +137,9 @@ export async function getFeed(options?: { topicSlugs?: string[] }): Promise<Card
     .select()
     .from(cards)
     .where(
-      and(
-        eq(cards.status, "published"),
-        lte(cards.publishedAt, new Date().toISOString()),
-        cardIdsFilter ? inArray(cards.id, cardIdsFilter) : undefined
-      )
+      cardIdsFilter
+        ? and(eq(cards.status, "published"), inArray(cards.id, cardIdsFilter))
+        : eq(cards.status, "published")
     )
     .orderBy(desc(cards.publishedAt));
 
