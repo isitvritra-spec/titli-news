@@ -22,31 +22,43 @@
 module.exports = {
   colors: {
     /** App background and the reading surface — a warm near-black. */
-    bg: "#100A0C",
+    bg: "#E2E5DE",
     /**
      * The signature oxblood. A rare brand moment (splash, section intros) —
      * NOT a general-purpose background. Reach for it only in the specific
      * components built for that moment, not as a everyday utility.
      */
-    maroon: "#5A181A",
+    maroon: "#741F19",
+    /** Cinnabar red: essential news, warnings, and corrections. */
+    red: "#AA381E",
+    /** Blackberry plum: personalized and reflective editorial moments. */
+    plum: "#826D78",
+    /** Smoked jade: data, verification, health, and calm progress. */
+    jade: "#6D8177",
+    /** Muted editorial fields used to distinguish the seven story roles. */
+    lilac: "#D8CAE5",
+    sky: "#BFD0E3",
+    lime: "#DCE999",
+    peach: "#EBC3AC",
+    sage: "#BAC9BC",
     /** The one and only interactive accent — active states, links, trend arrows, the mark itself. */
-    gold: "#E4A069",
+    gold: "#AA381E",
     /** Headlines and body text on dark. */
-    ink: "#F4EEE6",
+    ink: "#111210",
     /** Source line, dates, captions. */
-    muted: "#A99A92",
+    muted: "#666B65",
     /** General-purpose raised surface — cards, sheets. */
-    surface: "#1B1113",
+    surface: "#F7F7F3",
     /** The one deeper/elevated screen background (the story-detail screen). */
-    surface2: "#241619",
+    surface2: "#ECEEE8",
   },
   derived: {
     /** Bottom-of-image gradient so headline text stays legible over photos. */
-    scrim: "rgba(16, 10, 12, 0.92)",
+    scrim: "rgba(17, 18, 16, 0.78)",
     /** Hairline dividers / card borders — ink-tinted at 10%. */
-    hairline: "rgba(244, 238, 230, 0.1)",
+    hairline: "rgba(17, 18, 16, 0.1)",
     /** Pressed/active overlay on dark surfaces. */
-    pressed: "rgba(244, 238, 230, 0.06)",
+    pressed: "rgba(170, 56, 30, 0.08)",
   },
   spacing: {
     0: 0,
@@ -73,19 +85,19 @@ module.exports = {
   /**
    * These must be the *exact* registered font-family names RN's `useFonts`
    * ends up with (it registers each font under its literal object key, e.g.
-   * "AnekDevanagari_600SemiBold" — never a bare "Anek Devanagari"). A bare
+   * "Mukta_600SemiBold" — never a bare "Mukta"). A bare
    * family name here silently falls back to the system font instead of
    * erroring, which is what happened with the previous Fraunces/Inter
    * values — keep this in sync with apps/mobile/app/_layout.tsx's useFonts()
    * call whenever either changes.
    */
   fontFamily: {
-    /** Anek Devanagari 600 — headlines, the data statistic, card titles. */
-    headline: "AnekDevanagari_600SemiBold",
-    /** Mukta 400 — body copy, the ~60-word card text, captions. */
+    /** Mukta 700 — headlines, the data statistic, and card titles. */
+    headline: "Mukta_700Bold",
+    /** Mukta 400 — body copy, the ~60-word card text, and captions. */
     body: "Mukta_400Regular",
-    /** Anek Devanagari 500 — topic-row labels, buttons, tab-bar labels. */
-    label: "AnekDevanagari_500Medium",
+    /** Mukta 600 — topic-row labels, buttons, and tab-bar labels. */
+    label: "Mukta_600SemiBold",
   },
   /**
    * Named for what the text *is*, not a generic t-shirt scale — matches
@@ -93,11 +105,11 @@ module.exports = {
    */
   fontSize: {
     /** The big stat number on a data card, tabular-nums, weight 600. */
-    hero: 28,
+    hero: 36,
     /** Card headline / detail headline / section h1, weight 600. */
-    title: 21,
+    title: 25,
     /** Body copy, weight 400. */
-    body: 15,
+    body: 16,
     /** Topic-row labels, buttons, tab-bar labels, weight 500. */
     label: 13,
     /** Source, date, "as of", footer text, weight 400. */

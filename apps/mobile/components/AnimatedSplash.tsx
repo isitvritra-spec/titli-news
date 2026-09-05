@@ -51,7 +51,7 @@ export function AnimatedSplash({ children }: PropsWithChildren) {
           style={[StyleSheet.absoluteFill, styles.splash, splashStyle]}
         >
           <Animated.View style={[styles.glow, glowStyle]} />
-          <ButterflyMark size={64} color={colors.gold} />
+          <ButterflyMark size={64} color={colors.red} />
         </Animated.View>
       ) : null}
     </View>
@@ -69,6 +69,7 @@ const styles = StyleSheet.create({
     width: 480,
     height: 480,
     borderRadius: 240,
-    backgroundColor: colors.maroon,
+    backgroundColor: colors.red,
+    opacity: 0.12,
   },
 });

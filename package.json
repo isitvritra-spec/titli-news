@@ -5,9 +5,12 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "test": "tsx --test apps/mobile/lib/checkIn.test.ts apps/mobile/lib/contentBalance.test.ts apps/mobile/lib/editionFreshness.test.ts apps/mobile/lib/feedPaging.test.ts apps/mobile/lib/personalization.test.ts apps/web/lib/analyticsSummary.test.ts apps/web/lib/hotStories.test.ts apps/web/lib/validation.test.ts"
   },
   "devDependencies": {
+    "qrcode-terminal": "^0.11.0",
+    "tsx": "^4.23.12",
     "turbo": "^2.10.9",
     "typescript": "^5.6.0"
   },

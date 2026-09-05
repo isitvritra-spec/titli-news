@@ -7,16 +7,19 @@
  * raw.js's header comment for the full explanation.
  */
 @theme {
-  --color-bg: #100a0c;
-  --color-maroon: #5a181a;
-  --color-gold: #e4a069;
-  --color-ink: #f4eee6;
-  --color-muted: #a99a92;
-  --color-surface: #1b1113;
-  --color-surface2: #241619;
-  --color-scrim: rgba(16, 10, 12, 0.92);
-  --color-hairline: rgba(244, 238, 230, 0.1);
-  --color-pressed: rgba(244, 238, 230, 0.06);
+  --color-bg: #110d0f;
+  --color-maroon: #7f222d;
+  --color-red: #c83d4b;
+  --color-plum: #633f59;
+  --color-jade: #5e8c82;
+  --color-gold: #c9975a;
+  --color-ink: #f2efe9;
+  --color-muted: #b5a8a4;
+  --color-surface: #1a1316;
+  --color-surface2: #241a20;
+  --color-scrim: rgba(17, 13, 15, 0.92);
+  --color-hairline: rgba(242, 239, 233, 0.1);
+  --color-pressed: rgba(242, 239, 233, 0.06);
 
   --font-headline: var(--font-anek-devanagari);
   --font-body: var(--font-mukta);

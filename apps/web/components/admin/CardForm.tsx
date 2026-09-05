@@ -22,6 +22,8 @@ export type CardFormInitialData = {
   publishedAt: string;
   isContested: boolean;
   contestedNote: string | null;
+  correctionNote: string | null;
+  correctedAt: string | null;
   deepDiveBody: string | null;
   topicIds: string[];
   primaryTopicId: string | null;
@@ -82,6 +84,10 @@ export function CardForm({
   const [publishedAt, setPublishedAt] = useState(toDatetimeLocal(initialData?.publishedAt ?? ""));
   const [isContested, setIsContested] = useState(initialData?.isContested ?? false);
   const [contestedNote, setContestedNote] = useState(initialData?.contestedNote ?? "");
+  const [correctionNote, setCorrectionNote] = useState(initialData?.correctionNote ?? "");
+  const [correctedAt, setCorrectedAt] = useState(
+    initialData?.correctedAt ? toDatetimeLocal(initialData.correctedAt) : "",
+  );
   const [deepDiveBody, setDeepDiveBody] = useState(initialData?.deepDiveBody ?? "");
   const [topicIds, setTopicIds] = useState<string[]>(initialData?.topicIds ?? []);
   const [primaryTopicId, setPrimaryTopicId] = useState(initialData?.primaryTopicId ?? "");
@@ -197,6 +203,10 @@ export function CardForm({
       publishedAt: new Date(publishedAt).toISOString(),
       isContested,
       contestedNote: isContested ? contestedNote : undefined,
+      correctionNote: correctionNote || undefined,
+      correctedAt: correctionNote
+        ? new Date(correctedAt || Date.now()).toISOString()
+        : undefined,
       deepDiveBody: deepDiveBody || undefined,
       topicIds,
       primaryTopicId,
@@ -378,13 +388,37 @@ export function CardForm({
         ) : null}
       </Field>
 
-      <Field label="Deep-dive (optional)">
+      <Field label="Correction (optional)">
+        <TextArea
+          value={correctionNote}
+          onChange={(value) => {
+            setCorrectionNote(value);
+            if (value && !correctedAt) setCorrectedAt(toDatetimeLocal(new Date().toISOString()));
+          }}
+          rows={3}
+          placeholder="Explain exactly what changed and why. Leave empty if the card has not been corrected."
+        />
+        {correctionNote ? (
+          <input
+            type="datetime-local"
+            value={correctedAt}
+            onChange={(event) => setCorrectedAt(event.target.value)}
+            className={`${inputClass} mt-2`}
+            aria-label="Correction timestamp"
+          />
+        ) : null}
+      </Field>
+
+      <Field label={cardType === "news" ? "Full story (required to publish)" : "Deep-dive (optional)"}>
         <TextArea
           value={deepDiveBody}
           onChange={setDeepDiveBody}
-          rows={6}
-          placeholder="Leave empty to fall back to a 'read the full story' link."
+          rows={10}
+          placeholder="Write the full reading experience. Separate paragraphs with a blank line."
         />
+        <p className="mt-1 text-caption text-muted">
+          {countWords(deepDiveBody)} words{cardType === "news" ? " / 120 minimum when published" : ""}
+        </p>
       </Field>
 
       {cardType === "news" ? (

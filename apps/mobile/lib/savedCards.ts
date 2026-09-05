@@ -14,6 +14,7 @@ export function useSavedCardIds() {
     queryFn: () => Promise.resolve([]),
     initialData: [],
     staleTime: Infinity,
+    gcTime: Infinity,
   });
   return data ?? [];
 }

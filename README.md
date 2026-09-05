@@ -6,7 +6,7 @@ A swipe-through feed of real Indian gender data and feminism news — a mobile a
 
 | Layer | Choice |
 |---|---|
-| Mobile | React Native + Expo (SDK 57), TypeScript |
+| Mobile | React Native + Expo (SDK 54), TypeScript |
 | Website | Next.js 16 (App Router), TypeScript, Tailwind v4 |
 | Backend | SQLite (via Drizzle ORM) + Next.js API routes, all inside `apps/web` |
 | Admin | A password-protected `/admin` section in the website itself |
@@ -76,6 +76,23 @@ cp .env.example .env
 pnpm start
 ```
 
+Sign in to Expo CLI and Expo Go with the same account for phone testing. If Expo's
+account service is unavailable, `pnpm start:offline` remains available as a local
+fallback.
+
+For the full reader, personalization, correction, and analytics walkthrough, see
+[`docs/mvp-ui-testing.md`](docs/mvp-ui-testing.md).
+
+## Quality checks
+
+```bash
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm build
+pnpm --filter mobile exec expo export --platform web
+```
+
 ## Deployment note: this needs a persistent disk
 
 The SQLite database and uploaded images are plain files on disk. Locally they
@@ -93,6 +110,12 @@ If you'd rather deploy to serverless hosting later, that's a config change, not 
 
 ## Editorial workflow
 
-1. Read the source RSS feeds / government data releases yourself (no in-app aggregator — that's intentionally out of scope, see the original brief).
-2. Sign in at `/admin`, write the card (the word counter enforces the ~60-word target; provenance fields are required before you can publish).
-3. Publish. The website updates within seconds (the admin API calls `revalidatePath` on every write); the mobile app picks it up on next foreground/pull-to-refresh.
+1. At 05:30 IST, the authenticated morning job refreshes RSS candidates and creates today's draft edition if needed.
+2. Sign in at `/admin`, review the inbox, write and verify cards, then open `/admin/editions`.
+3. Fill the seven edition roles. The composer blocks duplicates and warns about source concentration, low topic diversity, adjacent high-distress stories, and weak data placement.
+4. Choose **Approve for 07:00 IST** or **Publish now**. The scheduled publisher releases the edition atomically at 07:00 IST.
+5. Mobile reads the finite edition from `/api/editions/today`, resumes at the last card, and shows a caught-up state after card seven.
+
+When an editor drafts an RSS candidate, Titli uses the feed image first, then the article's Open Graph image, and finally creates a deterministic branded editorial illustration. Every result is optimized to WebP and stored once on the persistent volume.
+
+Render runs the morning and publishing jobs in UTC (`00:00` and `01:30`, respectively). Both call the persistent web service over authenticated internal endpoints, so the cron processes do not need direct access to the SQLite volume.

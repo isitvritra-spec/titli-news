@@ -1,15 +1,9 @@
 import { Text, View } from "react-native";
 
-/**
- * A gold-outlined tag, not a new color — "contested" gets attention through
- * the one accent color already in the palette, not an invented warning hue.
- */
 export function ContestedBadge() {
   return (
-    <View className="self-start rounded-full border border-gold px-3 py-1">
-      <Text className="text-gold text-caption font-body uppercase tracking-wide">
-        Contested — accounts differ
-      </Text>
+    <View className="self-start rounded-full bg-pressed px-3 py-1.5">
+      <Text className="font-label text-[11px] text-red">Accounts differ</Text>
     </View>
   );
 }

@@ -1,4 +1,12 @@
-import { sqliteTable, text, integer, real, primaryKey, index } from "drizzle-orm/sqlite-core";
+import {
+  sqliteTable,
+  text,
+  integer,
+  real,
+  primaryKey,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 const id = () => text("id").primaryKey().$defaultFn(() => crypto.randomUUID());
@@ -39,6 +47,20 @@ export const topics = sqliteTable("topics", {
   ...timestamps,
 });
 
+export const editions = sqliteTable("editions", {
+  id: id(),
+  editionDate: text("edition_date").notNull().unique(),
+  timezone: text("timezone").notNull().default("Asia/Kolkata"),
+  status: text("status", { enum: ["draft", "scheduled", "published", "archived"] })
+    .notNull()
+    .default("draft"),
+  version: integer("version").notNull().default(1),
+  scheduledFor: text("scheduled_for"),
+  publishedAt: text("published_at"),
+  updatedAt: text("updated_at").notNull().default(sql`(current_timestamp)`),
+  ...timestamps,
+});
+
 export const cards = sqliteTable("cards", {
   id: id(),
   cardType: text("card_type", { enum: ["news", "data"] }).notNull(),
@@ -61,6 +83,8 @@ export const cards = sqliteTable("cards", {
   updatedAt: text("updated_at").notNull().default(sql`(current_timestamp)`),
   isContested: integer("is_contested", { mode: "boolean" }).notNull().default(false),
   contestedNote: text("contested_note"),
+  correctionNote: text("correction_note"),
+  correctedAt: text("corrected_at"),
   deepDiveBody: text("deep_dive_body"),
 
   // News-only
@@ -75,6 +99,41 @@ export const cards = sqliteTable("cards", {
 
   ...timestamps,
 });
+
+export const editionCards = sqliteTable(
+  "edition_cards",
+  {
+    editionId: text("edition_id")
+      .notNull()
+      .references(() => editions.id, { onDelete: "cascade" }),
+    cardId: text("card_id")
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    role: text("role", {
+      enum: [
+        "anchor",
+        "for_you",
+        "number",
+        "useful_now",
+        "beyond_metro",
+        "another_lens",
+        "lift",
+      ],
+    }).notNull(),
+    recommendationReason: text("recommendation_reason").notNull(),
+    isMandatory: integer("is_mandatory", { mode: "boolean" }).notNull().default(false),
+    editorialImportance: integer("editorial_importance").notNull().default(50),
+    practicalUtility: integer("practical_utility").notNull().default(50),
+    distressLevel: text("distress_level", { enum: ["low", "medium", "high"] })
+      .notNull()
+      .default("low"),
+  },
+  (table) => [
+    primaryKey({ columns: [table.editionId, table.cardId] }),
+    uniqueIndex("edition_cards_position_idx").on(table.editionId, table.position),
+  ]
+);
 
 export const cardTopics = sqliteTable(
   "card_topics",
@@ -154,6 +213,8 @@ export const analyticsEvents = sqliteTable(
     eventType: text("event_type", {
       enum: [
         "app_open",
+        "edition_start",
+        "edition_complete",
         "card_view",
         "card_dwell",
         "card_detail_open",
@@ -164,8 +225,11 @@ export const analyticsEvents = sqliteTable(
         "genre_follow",
         "genre_unfollow",
         "pulse_open",
+        "why_this_open",
+        "less_like_this",
       ],
     }).notNull(),
+    editionId: text("edition_id").references(() => editions.id, { onDelete: "set null" }),
     cardId: text("card_id").references(() => cards.id, { onDelete: "set null" }),
     primaryTopicId: text("primary_topic_id").references(() => topics.id, { onDelete: "set null" }),
     topicSlug: text("topic_slug"),
@@ -178,5 +242,6 @@ export const analyticsEvents = sqliteTable(
     index("analytics_events_occurred_at_idx").on(table.occurredAt),
     index("analytics_events_topic_type_idx").on(table.primaryTopicId, table.eventType),
     index("analytics_events_card_idx").on(table.cardId),
+    index("analytics_events_edition_idx").on(table.editionId, table.eventType),
   ]
 );

@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import type { Card, CardDetail } from "@repo/api-client";
+import type { Card, CardDetail, TodayEdition } from "@repo/api-client";
 
 /**
  * request.nextUrl.origin doesn't reflect the Host header actually used to
@@ -39,4 +39,14 @@ export function serializeCards(cards: Card[], origin: string): Card[] {
 
 export function serializeCardDetail(card: CardDetail, origin: string): CardDetail {
   return absolutize(card, origin);
+}
+
+export function serializeTodayEdition(edition: TodayEdition, origin: string): TodayEdition {
+  return {
+    ...edition,
+    cards: edition.cards.map((item) => ({
+      ...item,
+      card: absolutize(item.card, origin),
+    })),
+  };
 }

@@ -14,6 +14,7 @@ export function useSelectedTopics() {
     queryFn: () => Promise.resolve([]),
     initialData: [],
     staleTime: Infinity,
+    gcTime: Infinity,
   });
   return data ?? [];
 }

@@ -18,6 +18,9 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
           <span className="text-caption text-muted">— Editor</span>
         </Link>
         <nav className="flex items-center gap-4">
+          <Link href="/admin/editions" className="font-headline font-medium text-label text-muted hover:text-ink">
+            Editions
+          </Link>
           <Link href="/admin/inbox" className="font-headline font-medium text-label text-muted hover:text-ink">
             Inbox
           </Link>

@@ -16,6 +16,8 @@ export type CardInput = {
   publishedAt: string;
   isContested: boolean;
   contestedNote?: string;
+  correctionNote?: string;
+  correctedAt?: string;
   deepDiveBody?: string;
   topicIds: string[];
   primaryTopicId: string;
@@ -47,6 +49,8 @@ function cardRowFromInput(input: CardInput) {
     updatedAt: new Date().toISOString(),
     isContested: input.isContested,
     contestedNote: input.isContested ? input.contestedNote ?? null : null,
+    correctionNote: input.correctionNote || null,
+    correctedAt: input.correctionNote ? input.correctedAt ?? null : null,
     deepDiveBody: input.deepDiveBody || null,
     sourceId: input.cardType === "news" ? input.sourceId ?? null : null,
     sourceDate: input.cardType === "news" ? input.sourceDate ?? null : null,
@@ -102,6 +106,8 @@ export async function listCardsForAdmin() {
       publishedAt: cards.publishedAt,
       status: cards.status,
       primaryTopicId: cards.primaryTopicId,
+      sourceId: cards.sourceId,
+      surveySourceId: cards.surveySourceId,
     })
     .from(cards)
     .orderBy(cards.publishedAt);

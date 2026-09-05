@@ -6,4 +6,6 @@ export { BookmarkIcon } from "./BookmarkIcon";
 export { CheckIcon } from "./CheckIcon";
 export { ChevronLeftIcon } from "./ChevronLeftIcon";
 export { ShareIcon } from "./ShareIcon";
+export { PulseIcon } from "./PulseIcon";
+export { SparkIcon } from "./SparkIcon";
 export type { IconProps } from "./Icon";

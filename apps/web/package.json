@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "pnpm run db:migrate && next dev",
     "build": "next build",
     "build:production": "next build --webpack",
     "start": "next start",
@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx lib/db/migrate.ts",
-    "db:seed": "tsx lib/db/seed.ts"
+    "db:seed": "tsx lib/db/seed.ts",
+    "db:backfill-deep-dives": "tsx lib/db/backfillDeepDives.ts"
   },
   "dependencies": {
     "@repo/tokens": "workspace:*",

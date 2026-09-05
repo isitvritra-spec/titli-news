@@ -38,7 +38,16 @@ export function ReadingCard({ card }: { card: Card }) {
         href={`/card/${card.slug}`}
         className="flex flex-1 flex-col px-5 pt-4 md:mx-auto md:w-full md:max-w-xl"
       >
-        {card.isContested ? <div className="mb-3"><ContestedBadge /></div> : null}
+        {card.isContested || card.correctedAt ? (
+          <div className="mb-3 flex items-center gap-2">
+            {card.isContested ? <ContestedBadge /> : null}
+            {card.correctedAt ? (
+              <span className="rounded-full border border-gold px-2.5 py-1 text-caption text-gold">
+                Corrected
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         <h2 className="font-headline text-title text-ink line-clamp-3">{card.headline}</h2>
 

@@ -17,6 +17,7 @@ export type SourceRef = {
   name: string;
   url: string;
   publisher?: string;
+  trustTier?: "primary" | "trusted" | "discovery";
 };
 
 export type Reading = {
@@ -42,6 +43,8 @@ type CardBase = {
   publishedAt: string;
   isContested?: boolean;
   contestedNote?: string;
+  correctionNote?: string;
+  correctedAt?: string;
 };
 
 export type NewsCard = CardBase & {
@@ -88,8 +91,96 @@ export type PulseMetric = {
   updatedAt: string;
 };
 
+export type HotStory = {
+  card: Card;
+  reason: "Most read" | "Most opened" | "Sources checked" | "Fresh from Titli";
+  averageDwellSeconds: number;
+  readerCount: number;
+};
+
+export type EditionRole =
+  | "anchor"
+  | "for_you"
+  | "number"
+  | "useful_now"
+  | "beyond_metro"
+  | "another_lens"
+  | "lift";
+
+export const EDITION_ROLE_CONFIG: ReadonlyArray<{
+  role: EditionRole;
+  label: string;
+  defaultReason: string;
+  mandatory: boolean;
+}> = [
+  {
+    role: "anchor",
+    label: "The Anchor",
+    defaultReason: "In today's essential seven",
+    mandatory: true,
+  },
+  {
+    role: "for_you",
+    label: "For You",
+    defaultReason: "Selected for the interests you follow",
+    mandatory: false,
+  },
+  {
+    role: "number",
+    label: "The Number",
+    defaultReason: "A verified number that adds context",
+    mandatory: false,
+  },
+  {
+    role: "useful_now",
+    label: "Useful Now",
+    defaultReason: "Something practical for today",
+    mandatory: false,
+  },
+  {
+    role: "beyond_metro",
+    label: "Beyond the Metro",
+    defaultReason: "A grounded story beyond metro headlines",
+    mandatory: false,
+  },
+  {
+    role: "another_lens",
+    label: "Another Lens",
+    defaultReason: "A different lens for balance",
+    mandatory: false,
+  },
+  {
+    role: "lift",
+    label: "The Lift",
+    defaultReason: "Ending today's edition with agency",
+    mandatory: false,
+  },
+];
+
+export type EditionCard = {
+  card: Card;
+  position: number;
+  role: EditionRole;
+  recommendationReason: string;
+  isMandatory: boolean;
+  editorialImportance: number;
+  practicalUtility: number;
+  distressLevel: "low" | "medium" | "high";
+};
+
+export type TodayEdition = {
+  id: string;
+  editionDate: string;
+  timezone: string;
+  version: number;
+  publishedAt: string;
+  cards: EditionCard[];
+};
+
 export type AnalyticsEventType =
   | "app_open"
+  | "edition_start"
+  | "edition_complete"
   | "card_view"
   | "card_dwell"
   | "card_detail_open"
@@ -99,12 +190,15 @@ export type AnalyticsEventType =
   | "source_open"
   | "genre_follow"
   | "genre_unfollow"
-  | "pulse_open";
+  | "pulse_open"
+  | "why_this_open"
+  | "less_like_this";
 
 export type AnalyticsEventInput = {
   installationId: string;
   sessionId: string;
   eventType: AnalyticsEventType;
+  editionId?: string;
   cardId?: string;
   topicSlug?: string;
   durationMs?: number;

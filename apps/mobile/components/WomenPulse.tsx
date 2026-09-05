@@ -1,9 +1,10 @@
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../lib/api";
 import { trackEvent } from "../lib/analytics";
+import { openExternalUrl } from "../lib/openExternalUrl";
 
 export function WomenPulse() {
   const insets = useSafeAreaInsets();
@@ -34,7 +35,7 @@ export function WomenPulse() {
             key={metric.key}
             onPress={() => {
               trackEvent("pulse_open", { topicSlug: metric.kind });
-              if (metric.sourceUrl.startsWith("http")) void Linking.openURL(metric.sourceUrl);
+              if (metric.sourceUrl.startsWith("http")) void openExternalUrl(metric.sourceUrl);
             }}
             className="w-52 rounded-xl border border-hairline bg-bg px-3 py-2"
             accessibilityRole="button"
@@ -51,7 +52,7 @@ export function WomenPulse() {
               {metric.value.toLocaleString("en-IN")}
             </Text>
             <Text className="font-body text-caption text-muted" numberOfLines={1}>
-              {metric.unit} · {metric.periodLabel}
+              {metric.unit} / {metric.periodLabel}
             </Text>
           </Pressable>
         ))}

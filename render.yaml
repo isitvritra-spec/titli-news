@@ -1,3 +1,9 @@
+envVarGroups:
+  - name: titli-internal
+    envVars:
+      - key: CRON_SECRET
+        generateValue: true
+
 services:
   - type: web
     name: titli-news
@@ -9,6 +15,7 @@ services:
     healthCheckPath: /api/health
     autoDeployTrigger: commit
     envVars:
+      - fromGroup: titli-internal
       - key: NODE_VERSION
         value: "22"
       - key: STORAGE_ROOT
@@ -23,3 +30,35 @@ services:
       name: titli-data
       mountPath: /var/data
       sizeGB: 1
+
+  - type: cron
+    name: titli-morning-ingest
+    runtime: node
+    plan: starter
+    region: singapore
+    schedule: "0 0 * * *"
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: node scripts/run-morning-ingest.mjs
+    envVars:
+      - fromGroup: titli-internal
+      - key: TITLI_WEB_HOST
+        fromService:
+          type: web
+          name: titli-news
+          property: hostport
+
+  - type: cron
+    name: titli-edition-publish
+    runtime: node
+    plan: starter
+    region: singapore
+    schedule: "30 1 * * *"
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: node scripts/run-scheduled-publish.mjs
+    envVars:
+      - fromGroup: titli-internal
+      - key: TITLI_WEB_HOST
+        fromService:
+          type: web
+          name: titli-news
+          property: hostport

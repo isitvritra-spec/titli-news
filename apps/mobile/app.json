@@ -6,15 +6,14 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "titli",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#100A0C",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#E2E5DE",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#100A0C",
+        "backgroundColor": "#E2E5DE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -29,11 +28,12 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#100A0C",
+          "backgroundColor": "#E2E5DE",
           "image": "./assets/splash-icon.png",
           "imageWidth": 120
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

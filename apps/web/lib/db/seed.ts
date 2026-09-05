@@ -16,8 +16,18 @@
 import sharp from "sharp";
 import fs from "node:fs/promises";
 import { db } from "./client";
-import { cardReadings, cards, cardStateBreakdown, cardTopics, sources, topics } from "./schema";
+import {
+  cardReadings,
+  cards,
+  cardStateBreakdown,
+  cardTopics,
+  editionCards,
+  editions,
+  sources,
+  topics,
+} from "./schema";
 import { storedImagePath, uploadDirectory, uploadedImageUrl } from "../storage";
+import { getDemoDeepDive } from "./demoDeepDives";
 
 const PALETTE = ["#5A181A", "#E4A069", "#2A1518", "#7A2E24", "#100A0C"];
 
@@ -84,6 +94,8 @@ async function main() {
       { id: "source-the-hindu", name: "The Hindu", kind: "news", url: "https://www.thehindu.com", trustTier: "trusted" as const, sourceType: "mainstream" as const, feedUrl: "https://www.thehindu.com/society/feeder/default.rss", ingestMethod: "rss" as const },
       { id: "source-scroll", name: "Scroll.in", kind: "news", url: "https://scroll.in", trustTier: "trusted" as const, sourceType: "mainstream" as const, feedUrl: "https://feeds.feedburner.com/ScrollinArticles.rss", ingestMethod: "rss" as const },
       { id: "source-pib", name: "PIB", kind: "news", url: "https://pib.gov.in", trustTier: "primary" as const, sourceType: "official" as const, feedUrl: "https://archive.pib.gov.in/newsite/rssenglish.aspx", ingestMethod: "rss" as const },
+      { id: "source-bcci", name: "BCCI", kind: "news", url: "https://www.bcci.tv", publisher: "Board of Control for Cricket in India", trustTier: "primary" as const, sourceType: "official" as const },
+      { id: "source-dst", name: "Department of Science and Technology", kind: "news", url: "https://dst.gov.in", publisher: "Government of India", trustTier: "primary" as const, sourceType: "official" as const },
     ])
     .onConflictDoNothing();
 
@@ -92,6 +104,7 @@ async function main() {
   const sourceByName = Object.fromEntries(sourceRows.map((s) => [s.name, s.id]));
 
   let seedCounter = 0;
+  const seededCardIds: string[] = [];
   async function image() {
     seedCounter += 1;
     return makePlaceholderImage(seedCounter);
@@ -203,6 +216,8 @@ async function main() {
       })
       .returning({ id: cards.id });
 
+    seededCardIds.push(row.id);
+
     await db.insert(cardTopics).values(dc.topics.map((t) => ({ cardId: row.id, topicId: topicBySlug[t] })));
     await db.insert(cardReadings).values(dc.readings.map((r) => ({ cardId: row.id, ...r })));
     if ("stateBreakdown" in dc && dc.stateBreakdown) {
@@ -222,6 +237,27 @@ async function main() {
     isContested?: boolean;
     contestedNote?: string;
   }[] = [
+    {
+      headline: "More than 1.48 crore SHG women reached the Lakhpati Didi benchmark",
+      body:
+        "The Ministry of Rural Development reported in July 2025 that more than 1.48 crore women in self-help-group households had reached the Lakhpati Didi income benchmark. The measure tracks sustained annual household income, not a one-time payment, and sits within a wider rural livelihoods programme.",
+      topics: ["rural-grassroots", "work-money"],
+      source: "PIB",
+    },
+    {
+      headline: "India women cricketers receive equal international match fees",
+      body:
+        "The BCCI adopted pay equity for international match fees in October 2022. Contracted women players now receive the same match fee as men for Tests, one-day internationals and T20 internationals. The policy does not make every part of cricket pay equal, but it removed one clear difference at international level.",
+      topics: ["sports-science-culture"],
+      source: "BCCI",
+    },
+    {
+      headline: "A national programme supports women from PhDs to senior research",
+      body:
+        "The Department of Science and Technology runs WISE-KIRAN programmes for women across different stages of science careers. Its support includes doctoral and post-doctoral fellowships, research opportunities for senior scientists, and institutional work on gender equity. Eligibility and open calls differ by programme, so applicants should check the official portal.",
+      topics: ["sports-science-culture", "education-skills"],
+      source: "Department of Science and Technology",
+    },
     {
       headline: "The POSH Act turns a decade old — enforcement still lags in practice",
       body:
@@ -300,6 +336,7 @@ async function main() {
         headline: nc.headline,
         slug,
         body: nc.body,
+        deepDiveBody: getDemoDeepDive(nc.headline) ?? null,
         imagePath: img.path,
         imageAlt: "Illustrative graphic",
         imageWidth: img.width,
@@ -315,7 +352,52 @@ async function main() {
       })
       .returning({ id: cards.id });
 
+    seededCardIds.push(row.id);
+
     await db.insert(cardTopics).values(nc.topics.map((t) => ({ cardId: row.id, topicId: topicBySlug[t] })));
+  }
+
+  const editionDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const [edition] = await db
+    .insert(editions)
+    .values({
+      editionDate,
+      status: "published",
+      publishedAt: new Date().toISOString(),
+      scheduledFor: new Date(`${editionDate}T01:30:00.000Z`).toISOString(),
+    })
+    .onConflictDoNothing()
+    .returning({ id: editions.id });
+
+  if (edition) {
+    const composition = [
+      [seededCardIds[2], "anchor", "A progress signal to open the day with agency", true, "low"],
+      [seededCardIds[10], "for_you", "A workplace conversation with practical relevance", false, "low"],
+      [seededCardIds[3], "number", "A verified number with the trade-offs kept visible", false, "low"],
+      [seededCardIds[11], "useful_now", "Know where a workplace protection reaches and where it does not", false, "medium"],
+      [seededCardIds[14], "beyond_metro", "A grounded story about the women holding public systems together", false, "low"],
+      [seededCardIds[12], "another_lens", "A clear view of what the law promises and when it begins", false, "low"],
+      [seededCardIds[1], "lift", "End with measurable progress while keeping the distance left to travel honest", false, "medium"],
+    ] as const;
+
+    await db.insert(editionCards).values(
+      composition.map(([cardId, role, recommendationReason, isMandatory, distressLevel], position) => ({
+        editionId: edition.id,
+        cardId,
+        position,
+        role,
+        recommendationReason,
+        isMandatory,
+        editorialImportance: role === "anchor" ? 100 : 65,
+        practicalUtility: role === "useful_now" ? 100 : 60,
+        distressLevel,
+      }))
+    );
   }
 
   console.log(`Seeded ${topicRows.length} topics, ${sourceRows.length} sources, ${dataCards.length + newsCards.length} cards.`);

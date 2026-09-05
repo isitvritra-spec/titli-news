@@ -22,6 +22,41 @@
       "when": 1787759491331,
       "tag": "0002_material_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788125343566,
+      "tag": "0003_curly_tyger_tiger",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788351457257,
+      "tag": "0004_secret_ozymandias",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788539475408,
+      "tag": "0005_balanced_daily_ritual",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788540719000,
+      "tag": "0006_version_balanced_editions",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788541580000,
+      "tag": "0007_agency_story_mix",
+      "breakpoints": true
     }
   ]
 }

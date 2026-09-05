@@ -26,6 +26,8 @@ export const cardInputSchema = z
     publishedAt: z.string().min(1),
     isContested: z.boolean(),
     contestedNote: z.string().optional(),
+    correctionNote: z.string().max(500).optional(),
+    correctedAt: z.iso.datetime().optional(),
     deepDiveBody: z.string().optional(),
     topicIds: z.array(z.string()).min(1, "Pick at least one topic"),
     primaryTopicId: z.string().min(1, "Pick a primary genre"),
@@ -54,6 +56,13 @@ export const cardInputSchema = z
       }
       if (!data.sourceDate) {
         ctx.addIssue({ code: "custom", message: "Source date is required for news cards", path: ["sourceDate"] });
+      }
+      if (data.status === "published" && countWords(data.deepDiveBody ?? "") < 120) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Published news needs a full story of at least 120 words",
+          path: ["deepDiveBody"],
+        });
       }
     }
 
@@ -89,6 +98,48 @@ export const cardInputSchema = z
         path: ["contestedNote"],
       });
     }
+
+    if (Boolean(data.correctionNote) !== Boolean(data.correctedAt)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "A correction needs both a note and timestamp",
+        path: data.correctionNote ? ["correctedAt"] : ["correctionNote"],
+      });
+    }
   });
 
 export type CardInputParsed = z.infer<typeof cardInputSchema>;
+
+const editionRoleSchema = z.enum([
+  "anchor",
+  "for_you",
+  "number",
+  "useful_now",
+  "beyond_metro",
+  "another_lens",
+  "lift",
+]);
+
+const editionSlotSchema = z.object({
+  cardId: z.string().min(1),
+  role: editionRoleSchema,
+  recommendationReason: z.string().min(1).max(160),
+  isMandatory: z.boolean(),
+  editorialImportance: z.number().int().min(0).max(100),
+  practicalUtility: z.number().int().min(0).max(100),
+  distressLevel: z.enum(["low", "medium", "high"]),
+});
+
+export const editionInputSchema = z
+  .object({
+    slots: z.array(editionSlotSchema).length(7, "Choose exactly seven cards"),
+    scheduledFor: z.iso.datetime().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (new Set(data.slots.map((slot) => slot.cardId)).size !== data.slots.length) {
+      ctx.addIssue({ code: "custom", message: "Each card can appear only once", path: ["slots"] });
+    }
+    if (new Set(data.slots.map((slot) => slot.role)).size !== data.slots.length) {
+      ctx.addIssue({ code: "custom", message: "Every edition role must appear once", path: ["slots"] });
+    }
+  });

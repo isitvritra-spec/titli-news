@@ -34,6 +34,15 @@ export function CardDetailContent({ card }: { card: CardDetail }) {
 
         {card.isContested ? <div className="mb-3"><ContestedBadge /></div> : null}
 
+        {card.correctionNote && card.correctedAt ? (
+          <aside className="mb-4 rounded-md border border-gold bg-surface p-4 text-caption leading-relaxed text-ink">
+            <p className="font-headline font-medium text-gold">
+              Correction / {formatCardDate(card.correctedAt)}
+            </p>
+            <p className="mt-1">{card.correctionNote}</p>
+          </aside>
+        ) : null}
+
         <h1 className="font-headline text-title text-ink">{card.headline}</h1>
 
         {isData && card.metric ? (

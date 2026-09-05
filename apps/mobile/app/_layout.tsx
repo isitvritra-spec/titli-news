@@ -4,8 +4,12 @@ import { useEffect } from "react";
 import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
-import { AnekDevanagari_500Medium, AnekDevanagari_600SemiBold } from "@expo-google-fonts/anek-devanagari";
-import { Mukta_400Regular, Mukta_500Medium } from "@expo-google-fonts/mukta";
+import {
+  Mukta_400Regular,
+  Mukta_500Medium,
+  Mukta_600SemiBold,
+  Mukta_700Bold,
+} from "@expo-google-fonts/mukta";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
@@ -15,7 +19,7 @@ import { StatusBar } from "expo-status-bar";
 import { colors } from "@repo/tokens";
 import { queryClient, asyncStoragePersister } from "../lib/queryClient";
 import { useRefetchOnForeground } from "../lib/useRefetchOnForeground";
-import { useHasSeenOnboarding } from "../lib/onboarding";
+import { useOnboardingStatus } from "../lib/onboarding";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 import { flushEvents, trackEvent } from "../lib/analytics";
 
@@ -31,23 +35,23 @@ SplashScreen.preventAutoHideAsync();
 function OnboardingGate() {
   const router = useRouter();
   const isRestoring = useIsRestoring();
-  const hasSeenOnboarding = useHasSeenOnboarding();
+  const { data: hasSeenOnboarding = false, isPending } = useOnboardingStatus();
 
   useEffect(() => {
-    if (!isRestoring && !hasSeenOnboarding) {
+    if (!isRestoring && !isPending && !hasSeenOnboarding) {
       router.replace("/onboarding");
     }
-  }, [isRestoring, hasSeenOnboarding, router]);
+  }, [isRestoring, isPending, hasSeenOnboarding, router]);
 
   return null;
 }
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    AnekDevanagari_500Medium,
-    AnekDevanagari_600SemiBold,
     Mukta_400Regular,
     Mukta_500Medium,
+    Mukta_600SemiBold,
+    Mukta_700Bold,
   });
 
   useRefetchOnForeground();
@@ -74,7 +78,7 @@ export default function RootLayout() {
           client={queryClient}
           persistOptions={{ persister: asyncStoragePersister }}
         >
-          <StatusBar style="light" />
+          <StatusBar style="dark" />
           <AnimatedSplash>
             <OnboardingGate />
             <Stack
@@ -86,6 +90,8 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="onboarding" options={{ presentation: "modal", gestureEnabled: false }} />
               <Stack.Screen name="card/[slug]" options={{ presentation: "modal" }} />
+              <Stack.Screen name="pulse" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
+              <Stack.Screen name="shh" options={{ presentation: "fullScreenModal", animation: "fade" }} />
             </Stack>
           </AnimatedSplash>
         </PersistQueryClientProvider>

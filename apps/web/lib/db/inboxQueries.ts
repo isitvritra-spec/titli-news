@@ -2,7 +2,11 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "./client";
 import { feedCandidates, sources } from "./schema";
 import { fetchAllCandidates, getSourceProfile, type FeedCandidateInput } from "../rss";
-import { generatePlaceholderImage, saveImageFromUrl } from "../images";
+import {
+  generatePlaceholderImage,
+  saveImageFromArticle,
+  saveImageFromUrl,
+} from "../images";
 
 /** Pulls all sources, skips anything already stored (dedup by link), inserts the rest. Returns how many were actually new. */
 export async function refreshInbox(): Promise<number> {
@@ -67,7 +71,9 @@ export async function prepareDraft(id: string): Promise<{ sourceId: string } | n
   if (!candidate) return null;
 
   if (!candidate.draftImagePath) {
-    const saved = (candidate.imageUrl && (await saveImageFromUrl(candidate.imageUrl))) || (await generatePlaceholderImage(candidate.title));
+    const rssImage = candidate.imageUrl ? await saveImageFromUrl(candidate.imageUrl) : null;
+    const articleImage = rssImage ? null : await saveImageFromArticle(candidate.link);
+    const saved = rssImage ?? articleImage ?? (await generatePlaceholderImage(candidate.title));
 
     await db
       .update(feedCandidates)

@@ -22,6 +22,14 @@ import raw from "./raw.js";
 export const colors = raw.colors as {
   bg: string;
   maroon: string;
+  red: string;
+  plum: string;
+  jade: string;
+  lilac: string;
+  sky: string;
+  lime: string;
+  peach: string;
+  sage: string;
   gold: string;
   ink: string;
   muted: string;

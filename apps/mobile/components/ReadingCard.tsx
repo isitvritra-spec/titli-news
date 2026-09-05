@@ -1,145 +1,289 @@
-import { Pressable, Share, Text, useWindowDimensions, View } from "react-native";
+import { useState } from "react";
+import { Pressable, Share, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useBottomTabBarHeight } from "expo-router/tabs";
-import { isDataCard, type Card } from "@repo/api-client";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
+import {
+  EDITION_ROLE_CONFIG,
+  isDataCard,
+  type EditionCard,
+  type EditionRole,
+} from "@repo/api-client";
 import { computeTrend, formatAsOf, formatCardDate } from "@repo/utils";
 import { colors } from "@repo/tokens";
 
 import { useSavedCardIds, useToggleSaved } from "../lib/savedCards";
+import { cardShareUrl } from "../lib/links";
+import { trackEvent } from "../lib/analytics";
+import { getCardSignalTopics } from "../lib/personalization";
+import { recordReaderSignal } from "../lib/readerProfile";
 import { TrendBadge } from "./TrendBadge";
 import { ContestedBadge } from "./ContestedBadge";
 import { BookmarkIcon, ShareIcon } from "./icons";
-import { trackEvent } from "../lib/analytics";
-import { cardShareUrl } from "../lib/links";
 
-/**
- * The one card layout for both card types (per the brief: "two card types,
- * one layout"). Image sits as its own block at the top, and text sits
- * fully below it on the flat near-black — not overlaid on the image — so
- * no gradient scrim is needed (design-guide.md: "no scrim is needed").
- *
- * useWindowDimensions (not Dimensions.get) so the card always fills the
- * actual current viewport — see CardStack.tsx's comment on why a one-time
- * snapshot goes stale, especially on web. Height subtracts the tab bar
- * (this only renders on the Feed tab, above the bar, not full-window) —
- * same reasoning as CardStack.tsx, kept in sync since both need it.
- */
+const rolePalette: Record<EditionRole, { accent: string; canvas: string }> = {
+  anchor: { accent: colors.red, canvas: colors.peach },
+  for_you: { accent: colors.plum, canvas: colors.lilac },
+  number: { accent: colors.ink, canvas: colors.lime },
+  useful_now: { accent: colors.jade, canvas: colors.sage },
+  beyond_metro: { accent: colors.red, canvas: colors.peach },
+  another_lens: { accent: colors.plum, canvas: colors.sky },
+  lift: { accent: colors.red, canvas: colors.lilac },
+};
+
 export function ReadingCard({
-  card,
-  height: heightOverride,
-  width: widthOverride,
+  editionCard,
+  editionId,
+  editionDate,
+  height,
+  width,
+  bottomInset,
 }: {
-  card: Card;
-  height?: number;
-  width?: number;
+  editionCard: EditionCard;
+  editionId: string;
+  editionDate: string;
+  height: number;
+  width: number;
+  bottomInset: number;
 }) {
   const router = useRouter();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const tabBarHeight = useBottomTabBarHeight();
-  const width = widthOverride ?? windowWidth;
-  const height = heightOverride ?? windowHeight - tabBarHeight;
-  /** "Top ~40% of the card" per design-guide.md. */
-  const imageHeight = Math.round(height * 0.4);
+  const [showWhy, setShowWhy] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const card = editionCard.card;
+  const position = editionCard.position;
+  const role = EDITION_ROLE_CONFIG.find((item) => item.role === editionCard.role)!;
+  const palette = rolePalette[editionCard.role];
   const isData = isDataCard(card);
+  const contentHeight = Math.max(340, height - bottomInset);
+  const compact = contentHeight < 510;
+  const imageHeight = Math.min(230, Math.max(compact ? 132 : 164, Math.round(contentHeight * 0.31)));
+  const bodyLines = compact ? (isData ? 2 : 3) : (isData ? 4 : 5);
   const trend = isData ? computeTrend(card.readings) : null;
   const savedIds = useSavedCardIds();
   const toggleSaved = useToggleSaved();
   const isSaved = savedIds.includes(card.id);
+  const stampProgress = useSharedValue(0);
+  const stampStyle = useAnimatedStyle(() => ({
+    opacity: stampProgress.value,
+    transform: [
+      { rotate: "-8deg" },
+      { scale: 0.82 + stampProgress.value * 0.18 },
+    ],
+  }));
+
+  function toggleWhy() {
+    const next = !showWhy;
+    setShowWhy(next);
+    if (next) trackEvent("why_this_open", { editionId, cardId: card.id, position });
+  }
+
+  function toggleSave() {
+    const willSave = !isSaved;
+    toggleSaved(card.id);
+    trackEvent(willSave ? "card_save" : "card_unsave", { editionId, cardId: card.id });
+    if (willSave) void recordReaderSignal("save", getCardSignalTopics(card));
+
+    if (willSave) {
+      stampProgress.value = 0;
+      stampProgress.value = withSequence(
+        withTiming(1, { duration: 180, easing: Easing.out(Easing.back(1.5)) }),
+        withDelay(650, withTiming(0, { duration: 180 })),
+      );
+    }
+  }
 
   return (
-    <View style={{ width, height }} className="bg-bg">
-      <View style={{ height: imageHeight }} className="w-full overflow-hidden">
-        <Image
-          source={{ uri: card.image.url }}
-          placeholder={{ uri: card.image.blurDataURL }}
-          placeholderContentFit="cover"
-          contentFit="cover"
-          style={{ width: "100%", height: "100%" }}
-          accessibilityLabel={card.image.alt}
-          transition={200}
-        />
-      </View>
-
+    <View
+      style={{
+        width,
+        height,
+        paddingBottom: bottomInset,
+        overflow: "hidden",
+        backgroundColor: palette.canvas,
+      }}
+    >
       <Pressable
         onPress={() => router.push(`/card/${card.slug}`)}
-        className="flex-1 px-5 pt-4"
+        className="relative w-full overflow-hidden"
+        style={{ height: imageHeight, backgroundColor: palette.canvas }}
       >
-        {/*
-          flex-1 + min-h-0: without min-h-0, a flex child won't shrink below
-          its content's natural size, so a long headline+body can overflow
-          this block and push the footer below the visible/clipped area —
-          most visible on web, where the CSS flexbox engine enforces this
-          strictly; Yoga (native) is more forgiving. numberOfLines above
-          already caps each Text's own height, so this block just needs
-          permission to actually respect that instead of overflowing.
-        */}
-        <View className="flex-1 min-h-0">
-          {card.isContested ? (
-            <View className="mb-3">
-              <ContestedBadge />
+        {isData && card.metric ? (
+          <LinearGradient
+            colors={[palette.canvas, colors.surface2]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className="flex-1 items-center justify-center px-6"
+          >
+            <View className="flex-1 items-center justify-center px-5">
+              <Text
+                className="font-headline text-ink"
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.65}
+                style={{
+                  fontSize: compact ? 52 : 64,
+                  lineHeight: compact ? 66 : 82,
+                  fontVariant: ["tabular-nums"],
+                }}
+              >
+                {card.metric.value}{card.metric.unit}
+              </Text>
+              <Text className="font-label text-[11px] uppercase tracking-wider text-ink">
+                One number / full context below
+              </Text>
+              <View className="absolute -right-8 -top-9 h-28 w-28 rotate-12 rounded-[34px] border-2 border-ink opacity-15" />
+            </View>
+          </LinearGradient>
+        ) : (
+          <Image
+            source={{ uri: card.image.url }}
+            placeholder={{ uri: card.image.blurDataURL }}
+            placeholderContentFit="cover"
+            contentFit="cover"
+            style={{ width: "100%", height: "100%" }}
+            accessibilityLabel={card.image.alt}
+            transition={250}
+          />
+        )}
+        <View className="absolute inset-x-0 bottom-0 h-px" style={{ backgroundColor: palette.accent }} />
+        <View
+          className="absolute bottom-3 left-5 rounded-full border border-ink px-3 py-1.5"
+          style={{ backgroundColor: colors.surface }}
+        >
+          <Text className="font-label text-[11px] uppercase tracking-wider text-ink">
+            {role.label}
+          </Text>
+        </View>
+      </Pressable>
+
+      <View className="min-h-0 flex-1 bg-surface px-5 pb-3 pt-3.5">
+        <View className="mb-2.5 flex-row items-center gap-2">
+          {card.isContested ? <ContestedBadge /> : null}
+          {card.correctedAt ? (
+            <View className="rounded-full border border-red px-2.5 py-1">
+              <Text className="font-label text-[11px] uppercase tracking-wider text-red">Corrected</Text>
             </View>
           ) : null}
+          <Pressable
+            onPress={toggleWhy}
+            className="min-h-11 justify-center rounded-full px-3"
+            style={{ backgroundColor: palette.canvas }}
+          >
+            <Text className="font-label text-[11px]" style={{ color: palette.accent }}>
+              {showWhy ? "Why it is here" : "Picked for you"}
+            </Text>
+          </Pressable>
+        </View>
 
-          <Text className="font-headline text-title text-ink" numberOfLines={3}>
+        {showWhy ? (
+          <View className="mb-3 rounded-lg bg-surface2 px-3.5 py-3">
+            <Text className="font-body text-[13px] leading-5 text-ink" numberOfLines={compact ? 3 : 5}>
+              {editionCard.recommendationReason}
+            </Text>
+            <View className="mt-2 flex-row items-center justify-between">
+              <Text className="mr-2 flex-1 font-body text-[11px] text-muted" numberOfLines={2}>
+                {feedbackSent ? "Your next edition will adjust." : "Essential stories always stay visible."}
+              </Text>
+              {!editionCard.isMandatory && !feedbackSent ? (
+                <Pressable
+                  onPress={() => {
+                    setFeedbackSent(true);
+                    trackEvent("less_like_this", { editionId, cardId: card.id, position });
+                    void recordReaderSignal("less_like_this", getCardSignalTopics(card));
+                  }}
+                  className="min-h-11 justify-center"
+                  hitSlop={8}
+                >
+                  <Text className="font-label text-[11px] text-red">Less like this</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
+
+        <Pressable
+          onPress={() => router.push(`/card/${card.slug}`)}
+          style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
+        >
+          <Text
+            className="font-headline text-ink"
+            numberOfLines={3}
+            style={{ fontSize: compact ? 23 : 26, lineHeight: compact ? 30 : 35 }}
+          >
             {card.headline}
           </Text>
 
-          {isData && card.metric ? (
-            <Text
-              className="mt-1 font-headline text-hero text-ink"
-              style={{ fontVariant: ["tabular-nums"] }}
-            >
-              {card.metric.value}
-              {card.metric.unit}
-            </Text>
-          ) : null}
-
-          {isData && trend ? (
-            <View className="mt-1">
-              <TrendBadge readings={card.readings} />
-            </View>
-          ) : null}
-
+          {isData && trend ? <View className="mt-0.5"><TrendBadge readings={card.readings} /></View> : null}
           {isData && trend?.latest ? (
-            <Text className="mt-0.5 text-caption text-muted font-body">
+            <Text className="mt-0.5 font-body text-caption text-muted">
               {formatAsOf(trend.latest.year, card.surveySource.name)}
             </Text>
           ) : null}
 
-          <Text className="mt-3 text-body leading-relaxed text-ink font-body" numberOfLines={6}>
-            {card.body}
-          </Text>
-        </View>
+          {!showWhy ? (
+            <Text
+              className="mt-2 font-body text-ink"
+              numberOfLines={bodyLines}
+              style={{ fontSize: compact ? 14 : 15, lineHeight: compact ? 20 : 22 }}
+            >
+              {card.body}
+            </Text>
+          ) : null}
+          {!showWhy ? (
+            <Text className="mt-2 font-label text-[11px] text-red">Read full story</Text>
+          ) : null}
+        </Pressable>
 
-        <View className="mt-auto mb-6 pt-3 border-t border-hairline flex-row items-center justify-between">
-          <Text className="text-caption text-muted font-body" numberOfLines={1}>
-            {isData ? "" : `${card.source.name} · ${formatCardDate(card.sourceDate)}`}
-          </Text>
-          <View className="flex-row items-center gap-4">
+        <View className="mt-auto flex-row items-center border-t border-hairline pt-2.5">
+          <View className="min-w-0 flex-1 pr-3">
+            <Text className="font-label text-[11px] text-ink" numberOfLines={1}>
+              {isData ? card.surveySource.name : card.source.name}
+            </Text>
+            <Text className="font-body text-[11px] uppercase tracking-wider text-muted" numberOfLines={1}>
+              {isData ? editionDate : `${formatCardDate(card.sourceDate)} / verified`}
+            </Text>
+          </View>
+          <View
+            className="mr-2 h-11 w-11 items-center justify-center rounded-full bg-surface2"
+          >
             <Pressable
-              onPress={() => {
-                toggleSaved(card.id);
-                trackEvent(isSaved ? "card_unsave" : "card_save", { cardId: card.id });
-              }}
+              onPress={toggleSave}
               aria-label={isSaved ? "Remove from saved" : "Save"}
-              hitSlop={8}
+              className="h-11 w-11 items-center justify-center"
             >
-              <BookmarkIcon size={18} color={isSaved ? colors.gold : colors.muted} active={isSaved} />
-            </Pressable>
-            <Pressable
-              onPress={async () => {
-                await Share.share({ message: `${card.headline}\n${cardShareUrl(card.slug)}` });
-                trackEvent("card_share", { cardId: card.id });
-              }}
-              aria-label="Share"
-              hitSlop={8}
-            >
-              <ShareIcon size={18} color={colors.muted} />
+              <BookmarkIcon size={18} color={isSaved ? colors.red : colors.muted} active={isSaved} />
             </Pressable>
           </View>
+          <Pressable
+            onPress={async () => {
+              const result = await Share.share({ message: `${card.headline}\n${cardShareUrl(card.slug)}` });
+              if (result.action === Share.sharedAction) {
+                trackEvent("card_share", { editionId, cardId: card.id });
+                void recordReaderSignal("share", getCardSignalTopics(card));
+              }
+            }}
+            aria-label="Share"
+            className="h-11 w-11 items-center justify-center rounded-full bg-surface2"
+          >
+            <ShareIcon size={18} color={colors.muted} />
+          </Pressable>
         </View>
-      </Pressable>
+        <Animated.View
+          pointerEvents="none"
+          className="absolute bottom-16 right-5 rounded-md border-2 border-red bg-surface px-3 py-1"
+          style={stampStyle}
+        >
+          <Text className="font-headline text-label uppercase tracking-wider text-red">Kept</Text>
+        </Animated.View>
+      </View>
     </View>
   );
 }

@@ -1,4 +1,12 @@
-import type { AnalyticsEventInput, Card, CardDetail, PulseMetric, Topic } from "./types";
+import type {
+  AnalyticsEventInput,
+  Card,
+  CardDetail,
+  HotStory,
+  PulseMetric,
+  TodayEdition,
+  Topic,
+} from "./types";
 
 /**
  * The one HTTP client, used by apps/mobile (talking to apps/web's API
@@ -41,6 +49,9 @@ export function createApiClient(baseUrl: string) {
         : "";
       return request<Card[]>(`/api/feed${qs}`);
     },
+    getTodayEdition(): Promise<TodayEdition | null> {
+      return request<TodayEdition | null>(`/api/editions/today`, { notFoundAsNull: true });
+    },
     getCardBySlug(slug: string): Promise<CardDetail | null> {
       return request<CardDetail | null>(`/api/cards/${encodeURIComponent(slug)}`, {
         notFoundAsNull: true,
@@ -51,6 +62,10 @@ export function createApiClient(baseUrl: string) {
     },
     getPulse(): Promise<PulseMetric[]> {
       return request<PulseMetric[]>(`/api/pulse`);
+    },
+    getHotStories(editionId?: string): Promise<HotStory[]> {
+      const qs = editionId ? `?editionId=${encodeURIComponent(editionId)}` : "";
+      return request<HotStory[]>(`/api/hot${qs}`);
     },
     trackEvents(events: AnalyticsEventInput[]): Promise<{ accepted: number }> {
       return post<{ accepted: number }>(`/api/events/batch`, { events });

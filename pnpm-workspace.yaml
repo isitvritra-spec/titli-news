@@ -1,6 +1,9 @@
 packages:
   - "apps/*"
   - "packages/*"
+nodeLinker: hoisted
+injectWorkspacePackages: true
+storeDir: .pnpm-store
 allowBuilds:
   better-sqlite3: true
   esbuild: true

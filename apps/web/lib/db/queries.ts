@@ -36,7 +36,12 @@ function toImageAsset(row: CardRow): ImageAsset {
 }
 
 function toSourceRef(row: SourceRow): SourceRef {
-  return { name: row.name, url: row.url, publisher: row.publisher ?? undefined };
+  return {
+    name: row.name,
+    url: row.url,
+    publisher: row.publisher ?? undefined,
+    trustTier: row.trustTier,
+  };
 }
 
 /**
@@ -44,7 +49,7 @@ function toSourceRef(row: SourceRow): SourceRef {
  * IN-clause lookups for topics/sources/readings rather than per-card
  * queries (N+1 avoided, at the cost of assembling the join in JS).
  */
-async function hydrateCards(cardRows: CardRow[]): Promise<Card[]> {
+export async function hydrateCards(cardRows: CardRow[]): Promise<Card[]> {
   if (cardRows.length === 0) return [];
   const cardIds = cardRows.map((c) => c.id);
 
@@ -96,6 +101,8 @@ async function hydrateCards(cardRows: CardRow[]): Promise<Card[]> {
       publishedAt: row.publishedAt,
       isContested: row.isContested,
       contestedNote: row.contestedNote ?? undefined,
+      correctionNote: row.correctionNote ?? undefined,
+      correctedAt: row.correctedAt ?? undefined,
     };
 
     if (row.cardType === "news") {
@@ -253,9 +260,7 @@ export async function getPulse(): Promise<PulseMetric[]> {
     updatedAt: row.updatedAt,
   }));
 
-  return [
-    ...stored,
-    {
+  const winsMetric: PulseMetric[] = winsTotal > 0 ? [{
       key: `womens-wins-${year}`,
       kind: "progress",
       label: "Women's Wins",
@@ -266,6 +271,7 @@ export async function getPulse(): Promise<PulseMetric[]> {
       sourceUrl: "/topic/womens-wins",
       methodology: "Counts published Titli cards whose primary genre is Women's Wins.",
       updatedAt: new Date().toISOString(),
-    },
-  ];
+    }] : [];
+
+  return [...stored, ...winsMetric];
 }

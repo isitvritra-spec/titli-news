@@ -1,44 +1,106 @@
-import { useWindowDimensions } from "react-native";
-import { useBottomTabBarHeight } from "expo-router/tabs";
-import { Carousel } from "react-native-reanimated-carousel";
-import type { Card } from "@repo/api-client";
+import { useEffect, useRef, useState } from "react";
+import { FlatList, type NativeScrollEvent, type NativeSyntheticEvent, useWindowDimensions } from "react-native";
+import { useBottomTabBarHeight } from "expo-router/js-tabs";
+import { useRouter } from "expo-router";
+import type { EditionCard, HotStory, TodayEdition } from "@repo/api-client";
 
+import { EditionCompletion } from "./EditionCompletion";
+import { MoreNews } from "./MoreNews";
 import { ReadingCard } from "./ReadingCard";
+import { feedIndexForOffset } from "../lib/feedPaging";
 
-/**
- * The swipe feed itself. Starts on react-native-reanimated-carousel for its
- * built-in windowing/recycling and snap physics — a working, good-feeling
- * feed without hand-rolling gesture math. If the feel needs more control
- * later, this is the one place to eject to a custom Gesture.Pan() build.
- *
- * useWindowDimensions (not Dimensions.get, which only reads once at module
- * load) so this stays correct if the viewport changes after load — the
- * common case on web, where Dimensions.get can capture a stale size before
- * the browser chrome/responsive layout settles. Height is the window minus
- * the tab bar (useBottomTabBarHeight) — this screen renders *above* the tab
- * bar, not full-window, so sizing each card to the raw window height pushed
- * its footer out below the visible area, under the tab bar.
- */
+type StackItem =
+  | { kind: "card"; item: EditionCard }
+  | { kind: "completion" }
+  | { kind: "more" };
+
 export function CardStack({
-  cards,
+  edition,
   onIndexChange,
+  onComplete,
+  initialIndex = 0,
   height: heightOverride,
+  hotStories = [],
 }: {
-  cards: Card[];
+  edition: TodayEdition;
   onIndexChange?: (index: number) => void;
+  onComplete?: () => void;
+  initialIndex?: number;
   height?: number;
+  hotStories?: HotStory[];
 }) {
+  const router = useRouter();
+  const listRef = useRef<FlatList<StackItem>>(null);
+  const lastIndex = useRef(-1);
+  const [showMore, setShowMore] = useState(false);
   const { width, height: windowHeight } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
-  const height = heightOverride ?? windowHeight - tabBarHeight;
+  const height = Math.max(420, heightOverride ?? windowHeight - tabBarHeight);
+  const bottomInset = Math.max(tabBarHeight + 8, 96);
+  const data: StackItem[] = [
+    ...edition.cards.map((item): StackItem => ({ kind: "card", item })),
+    { kind: "completion" },
+    ...(showMore ? [{ kind: "more" } as StackItem] : []),
+  ];
+
+  useEffect(() => {
+    if (!showMore) return;
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.scrollToIndex({ index: edition.cards.length + 1, animated: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [edition.cards.length, showMore]);
+
+  function updateVisibleItem(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const nextIndex = feedIndexForOffset(event.nativeEvent.contentOffset.y, height, data.length);
+    if (nextIndex === lastIndex.current) return;
+
+    lastIndex.current = nextIndex;
+    onIndexChange?.(nextIndex);
+    if (nextIndex === edition.cards.length) onComplete?.();
+  }
+
   return (
-    <Carousel
-      data={cards}
-      orientation="vertical"
+    <FlatList
+      ref={listRef}
+      data={data}
+      initialScrollIndex={Math.min(Math.max(initialIndex, 0), data.length - 1)}
       style={{ width, height }}
-      loop={false}
-      onSnapToItem={onIndexChange}
-      renderItem={({ item }) => <ReadingCard card={item} height={height} width={width} />}
+      showsVerticalScrollIndicator={false}
+      bounces={false}
+      pagingEnabled
+      snapToInterval={height}
+      snapToAlignment="start"
+      disableIntervalMomentum
+      decelerationRate="fast"
+      overScrollMode="never"
+      scrollEventThrottle={32}
+      onScroll={updateVisibleItem}
+      getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
+      keyExtractor={(item, index) => item.kind === "card" ? item.item.card.id : `${item.kind}-${index}`}
+      renderItem={({ item }) => {
+        if (item.kind === "card") return (
+          <ReadingCard
+            editionCard={item.item}
+            editionId={edition.id}
+            editionDate={edition.editionDate}
+            height={height}
+            width={width}
+            bottomInset={bottomInset}
+          />
+        );
+        if (item.kind === "completion") return (
+          <EditionCompletion
+            edition={edition}
+            height={height}
+            width={width}
+            bottomInset={bottomInset}
+            onStayCurious={() => setShowMore(true)}
+            onExplore={() => router.push("/(tabs)/topics")}
+          />
+        );
+        return <MoreNews stories={hotStories} height={height} width={width} bottomInset={bottomInset} />;
+      }}
     />
   );
 }
