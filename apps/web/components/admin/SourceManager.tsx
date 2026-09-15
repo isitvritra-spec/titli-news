@@ -15,6 +15,10 @@ type SourceRow = {
   ingestMethod: "rss" | "api" | "manual";
   isActive: boolean;
   editorialNotes: string | null;
+  imagePolicy: "allow" | "deny" | "manual";
+  allowsTextFetch: boolean;
+  licenceNote: string | null;
+  attributionRequired: boolean;
   createdAt: string;
 };
 
@@ -31,6 +35,23 @@ export function SourceManager({ sources }: { sources: SourceRow[] }) {
   const [feedUrl, setFeedUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  async function savePolicy(id: string, patch: Record<string, unknown>) {
+    setSavingId(id);
+    setError(null);
+    const response = await fetch(`/api/admin/sources/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    setSavingId(null);
+    if (!response.ok) {
+      setError("Could not save that policy change.");
+      return;
+    }
+    router.refresh();
+  }
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -67,6 +88,17 @@ export function SourceManager({ sources }: { sources: SourceRow[] }) {
         Primary sources establish records, trusted sources support editorial reporting, and discovery sources only create leads.
       </p>
 
+      <div className="mb-6 rounded-md border border-hairline bg-surface p-4">
+        <h2 className="font-headline text-label text-ink">Reuse policy</h2>
+        <p className="mt-1 text-caption text-muted">
+          Every source starts at <strong className="text-ink">deny</strong>. Only set a source to
+          allow once you have actually read its licence and confirmed that re-hosting its
+          photography is permitted — a licensed wire photo copied onto our domain is the largest
+          legal risk in the product. Text fetching follows the same rule for the source&apos;s terms
+          and robots.txt.
+        </p>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead>
@@ -74,7 +106,9 @@ export function SourceManager({ sources }: { sources: SourceRow[] }) {
               <th className="py-3 pr-4 font-medium">Source</th>
               <th className="py-3 pr-4 font-medium">Tier</th>
               <th className="py-3 pr-4 font-medium">Type</th>
-              <th className="py-3 font-medium">Ingestion</th>
+              <th className="py-3 pr-4 font-medium">Ingestion</th>
+              <th className="py-3 pr-4 font-medium">Images</th>
+              <th className="py-3 font-medium">Text</th>
             </tr>
           </thead>
           <tbody>
@@ -84,10 +118,38 @@ export function SourceManager({ sources }: { sources: SourceRow[] }) {
                   <a href={source.url} target="_blank" rel="noreferrer" className="font-headline font-medium hover:text-gold">
                     {source.name}
                   </a>
+                  {source.licenceNote ? (
+                    <span className="mt-0.5 block max-w-xs text-caption text-muted">{source.licenceNote}</span>
+                  ) : null}
                 </td>
                 <td className="py-3 pr-4 capitalize">{source.trustTier}</td>
                 <td className="py-3 pr-4 capitalize">{source.sourceType}</td>
-                <td className="py-3 capitalize">{source.ingestMethod}</td>
+                <td className="py-3 pr-4 capitalize">{source.ingestMethod}</td>
+                <td className="py-3 pr-4">
+                  <select
+                    value={source.imagePolicy}
+                    disabled={savingId === source.id}
+                    onChange={(event) => savePolicy(source.id, { imagePolicy: event.target.value })}
+                    aria-label={`Image reuse policy for ${source.name}`}
+                    className="rounded-md border border-hairline bg-transparent px-2 py-1 text-caption text-ink disabled:opacity-50"
+                  >
+                    <option value="deny">Deny</option>
+                    <option value="manual">Manual only</option>
+                    <option value="allow">Allow</option>
+                  </select>
+                </td>
+                <td className="py-3">
+                  <label className="flex items-center gap-2 text-caption text-muted">
+                    <input
+                      type="checkbox"
+                      checked={source.allowsTextFetch}
+                      disabled={savingId === source.id}
+                      onChange={(event) => savePolicy(source.id, { allowsTextFetch: event.target.checked })}
+                      aria-label={`Allow article text fetching from ${source.name}`}
+                    />
+                    Fetch
+                  </label>
+                </td>
               </tr>
             ))}
           </tbody>

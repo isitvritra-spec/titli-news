@@ -13,6 +13,11 @@ export type CardInput = {
   imageWidth: number;
   imageHeight: number;
   imageBlurDataUrl: string;
+  imageOrigin: "licensed_stock" | "source_permitted" | "own_upload" | "generated" | "unknown";
+  imageCredit?: string;
+  imageLicence?: string;
+  imageSourceUrl?: string;
+  sourceHeadline?: string;
   publishedAt: string;
   isContested: boolean;
   contestedNote?: string;
@@ -44,6 +49,10 @@ function cardRowFromInput(input: CardInput) {
     imageWidth: input.imageWidth,
     imageHeight: input.imageHeight,
     imageBlurDataUrl: input.imageBlurDataUrl,
+    imageOrigin: input.imageOrigin,
+    imageCredit: input.imageCredit || null,
+    imageLicence: input.imageLicence || null,
+    imageSourceUrl: input.imageSourceUrl || null,
     publishedAt: input.publishedAt,
     reviewedAt: input.status === "published" ? new Date().toISOString() : null,
     updatedAt: new Date().toISOString(),
@@ -54,6 +63,7 @@ function cardRowFromInput(input: CardInput) {
     deepDiveBody: input.deepDiveBody || null,
     sourceId: input.cardType === "news" ? input.sourceId ?? null : null,
     sourceDate: input.cardType === "news" ? input.sourceDate ?? null : null,
+    sourceHeadline: input.cardType === "news" ? input.sourceHeadline || null : null,
     metricValue: input.cardType === "data" ? input.metricValue ?? null : null,
     metricUnit: input.cardType === "data" ? input.metricUnit ?? null : null,
     surveySourceId: input.cardType === "data" ? input.surveySourceId ?? null : null,
@@ -170,6 +180,23 @@ export async function createSource(input: {
     })
     .returning({ id: sources.id });
   return row.id;
+}
+
+export async function updateSourcePolicy(
+  id: string,
+  policy: {
+    imagePolicy?: "allow" | "deny" | "manual";
+    allowsTextFetch?: boolean;
+    attributionRequired?: boolean;
+    licenceNote?: string;
+  },
+): Promise<boolean> {
+  const [row] = await db
+    .update(sources)
+    .set(policy)
+    .where(eq(sources.id, id))
+    .returning({ id: sources.id });
+  return Boolean(row);
 }
 
 export async function listPulseMetricsForAdmin() {

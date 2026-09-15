@@ -67,6 +67,10 @@ export async function saveUploadedImage(file: File): Promise<SavedImage> {
  * content-type sniff before handing bytes to sharp, and a capped download
  * size — a slow/hostile/non-image URL should fail cleanly, not hang the
  * request or process an arbitrarily large payload.
+ *
+ * Call this only behind a source whose `imagePolicy` is "allow" — re-hosting
+ * a publisher's photo without that check is the copyright exposure the policy
+ * exists to prevent. prepareDraft() in db/inboxQueries.ts is the only caller.
  */
 const FETCH_TIMEOUT_MS = 10_000;
 export async function saveImageFromUrl(url: string): Promise<SavedImage | null> {

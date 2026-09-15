@@ -24,6 +24,11 @@ export function CardDetailContent({ card }: { card: CardDetail }) {
           placeholder="blur"
           blurDataURL={card.image.blurDataURL}
         />
+        {card.image.credit ? (
+          <span className="absolute bottom-0 right-0 bg-scrim px-2 py-1 text-caption text-bg">
+            {card.image.credit}
+          </span>
+        ) : null}
       </div>
 
       <div className="px-5 py-5 md:mx-auto md:max-w-xl">

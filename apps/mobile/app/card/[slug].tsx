@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { isDataCard } from "@repo/api-client";
 import { computeTrend, formatAsOf, formatCardDate } from "@repo/utils";
-import { colors } from "@repo/tokens";
+import { colors, derived } from "@repo/tokens";
 
 import { api } from "../../lib/api";
 import { useSavedCardIds, useToggleSaved } from "../../lib/savedCards";
@@ -174,6 +174,9 @@ export default function CardDetail() {
             style={{ width: "100%", height: "100%" }}
             accessibilityLabel={card.image.alt}
           />
+          {card.image.credit ? (
+            <Text style={detailStyle.imageCredit}>{card.image.credit}</Text>
+          ) : null}
           {isData && card.metric ? (
             <LinearGradient
               colors={["#11121010", "#111210E8"]}
@@ -431,6 +434,16 @@ const detailStyle = StyleSheet.create({
     justifyContent: "flex-end",
     padding: 28,
     paddingBottom: 50,
+  },
+  imageCredit: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 11,
+    color: e.white,
+    backgroundColor: derived.scrim,
   },
   roundButton: {
     width: 46,

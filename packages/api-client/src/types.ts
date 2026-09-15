@@ -6,6 +6,8 @@ export type ImageAsset = {
   height: number;
   /** A small base64 data URI, generated at upload time, for blur-up placeholders. */
   blurDataURL: string;
+  /** Shown beside the image when the licence requires attribution. Absent for our own and generated art. */
+  credit?: string;
 };
 
 export type TopicRef = {

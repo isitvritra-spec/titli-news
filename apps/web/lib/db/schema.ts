@@ -34,6 +34,26 @@ export const sources = sqliteTable("sources", {
     .default("manual"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   editorialNotes: text("editorial_notes"),
+
+  /**
+   * Whether we may re-host this publisher's imagery. Defaults to "deny" for
+   * every source until someone has actually read that source's licence —
+   * re-hosting a wire photo (PTI/Reuters/AP) is the single largest legal
+   * exposure in the product, so the safe value is the default value.
+   * "manual" means an editor may attach an image by hand but nothing is
+   * downloaded automatically.
+   */
+  imagePolicy: text("image_policy", { enum: ["allow", "deny", "manual"] })
+    .notNull()
+    .default("deny"),
+  /** Gates fetching the article body for AI drafting (robots.txt / ToS). */
+  allowsTextFetch: integer("allows_text_fetch", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  licenceNote: text("licence_note"),
+  attributionRequired: integer("attribution_required", { mode: "boolean" })
+    .notNull()
+    .default(true),
   ...timestamps,
 });
 
@@ -74,6 +94,20 @@ export const cards = sqliteTable("cards", {
   imageHeight: integer("image_height").notNull(),
   imageBlurDataUrl: text("image_blur_data_url").notNull(),
 
+  /**
+   * Where this image came from. "unknown" is the backfill value for cards
+   * that predate provenance tracking — scripts/audit-image-provenance.ts
+   * lists those so they can be re-imaged rather than silently trusted.
+   */
+  imageOrigin: text("image_origin", {
+    enum: ["licensed_stock", "source_permitted", "own_upload", "generated", "unknown"],
+  })
+    .notNull()
+    .default("unknown"),
+  imageCredit: text("image_credit"),
+  imageLicence: text("image_licence"),
+  imageSourceUrl: text("image_source_url"),
+
   status: text("status", { enum: ["draft", "published", "archived"] })
     .notNull()
     .default("published"),
@@ -90,6 +124,8 @@ export const cards = sqliteTable("cards", {
   // News-only
   sourceId: text("source_id").references(() => sources.id),
   sourceDate: text("source_date"),
+  /** The source's own headline, kept only to block publishing a verbatim copy of it. Never rendered. */
+  sourceHeadline: text("source_headline"),
 
   // Data-only
   metricValue: real("metric_value"),
@@ -185,6 +221,11 @@ export const feedCandidates = sqliteTable("feed_candidates", {
   draftImageWidth: integer("draft_image_width"),
   draftImageHeight: integer("draft_image_height"),
   draftImageBlurDataUrl: text("draft_image_blur_data_url"),
+  /** Which branch of prepareDraft() produced the draft image, carried through to the card. */
+  draftImageOrigin: text("draft_image_origin", {
+    enum: ["source_permitted", "generated"],
+  }),
+  draftImageCredit: text("draft_image_credit"),
 
   draftedCardId: text("drafted_card_id").references(() => cards.id, { onDelete: "set null" }),
 });

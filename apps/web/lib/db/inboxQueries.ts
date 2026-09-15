@@ -55,25 +55,62 @@ export async function markCandidateDrafted(candidateId: string, cardId: string):
   await db.update(feedCandidates).set({ draftedCardId: cardId }).where(eq(feedCandidates.id, candidateId));
 }
 
+/** Finds the `source` row for a candidate, creating it on first sight so the new-card form has something to select. */
+async function ensureSource(candidate: { sourceName: string; sourceSiteUrl: string }) {
+  const [existing] = await db
+    .select()
+    .from(sources)
+    .where(eq(sources.name, candidate.sourceName))
+    .limit(1);
+  if (existing) return existing;
+
+  const profile = getSourceProfile(candidate.sourceName);
+  const [created] = await db
+    .insert(sources)
+    .values({
+      name: candidate.sourceName,
+      kind: "news",
+      url: candidate.sourceSiteUrl,
+      trustTier: profile?.trustTier ?? "discovery",
+      sourceType: profile?.sourceType ?? "aggregator",
+      feedUrl: profile?.feedUrl ?? null,
+      // imagePolicy/allowsTextFetch are left at their schema defaults, which
+      // deny both: an editor opts a new source in on /admin/sources once its
+      // licence has actually been read.
+      ingestMethod: profile ? "rss" : "manual",
+    })
+    .returning();
+
+  return created;
+}
+
 /**
  * Idempotent: if the candidate's image was already downloaded+processed on
- * a previous click, this is a no-op. Also ensures a matching `source` row
- * exists so the new-card form has something to select.
+ * a previous click, this is a no-op.
  *
- * Every candidate ends up with *some* draft image: the real source image
- * when there is one and the download succeeds, otherwise a branded
- * placeholder — several sources (PIB, Google News, some Behanbox items)
- * never provide an image at all, and a failed/blocked download shouldn't
- * leave the editor blocked on a manual upload either.
+ * The source's `imagePolicy` decides whether we may re-host its photography
+ * at all. Only "allow" reaches saveImageFromUrl/saveImageFromArticle; every
+ * other source gets the branded placeholder instead, so a licensed wire photo
+ * is never silently copied onto our domain. Either way the candidate ends up
+ * with *some* draft image — a failed download or a locked-down source should
+ * not leave the editor blocked.
  */
 export async function prepareDraft(id: string): Promise<{ sourceId: string } | null> {
   const [candidate] = await db.select().from(feedCandidates).where(eq(feedCandidates.id, id)).limit(1);
   if (!candidate) return null;
 
+  const source = await ensureSource(candidate);
+
   if (!candidate.draftImagePath) {
-    const rssImage = candidate.imageUrl ? await saveImageFromUrl(candidate.imageUrl) : null;
-    const articleImage = rssImage ? null : await saveImageFromArticle(candidate.link);
-    const saved = rssImage ?? articleImage ?? (await generatePlaceholderImage(candidate.title));
+    const permitted = source.imagePolicy === "allow";
+
+    const sourceImage = permitted
+      ? (candidate.imageUrl ? await saveImageFromUrl(candidate.imageUrl) : null) ??
+        (await saveImageFromArticle(candidate.link))
+      : null;
+
+    const saved = sourceImage ?? (await generatePlaceholderImage(candidate.title));
+    const origin = sourceImage ? "source_permitted" : "generated";
 
     await db
       .update(feedCandidates)
@@ -83,32 +120,13 @@ export async function prepareDraft(id: string): Promise<{ sourceId: string } | n
         draftImageWidth: saved.width,
         draftImageHeight: saved.height,
         draftImageBlurDataUrl: saved.blurDataURL,
+        draftImageOrigin: origin,
+        draftImageCredit: sourceImage ? candidate.sourceName : null,
       })
       .where(eq(feedCandidates.id, id));
   }
 
-  const [existingSource] = await db
-    .select()
-    .from(sources)
-    .where(eq(sources.name, candidate.sourceName))
-    .limit(1);
-
-  if (existingSource) return { sourceId: existingSource.id };
-
-  const [created] = await db
-    .insert(sources)
-    .values({
-      name: candidate.sourceName,
-      kind: "news",
-      url: candidate.sourceSiteUrl,
-      trustTier: getSourceProfile(candidate.sourceName)?.trustTier ?? "discovery",
-      sourceType: getSourceProfile(candidate.sourceName)?.sourceType ?? "aggregator",
-      feedUrl: getSourceProfile(candidate.sourceName)?.feedUrl ?? null,
-      ingestMethod: getSourceProfile(candidate.sourceName) ? "rss" : "manual",
-    })
-    .returning({ id: sources.id });
-
-  return { sourceId: created.id };
+  return { sourceId: source.id };
 }
 
 export async function getInboxCandidateById(id: string) {

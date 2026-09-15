@@ -16,6 +16,7 @@ const newsCard = {
   imageWidth: 1200,
   imageHeight: 800,
   imageBlurDataUrl: "data:image/webp;base64,abc",
+  imageOrigin: "own_upload" as const,
   publishedAt: "2026-09-03T09:00:00.000Z",
   isContested: false,
   topicIds: ["topic-1"],
@@ -38,4 +39,46 @@ test("published news requires at least 120 words of full-story copy", () => {
 test("draft news can be saved before its full story is written", () => {
   const draft = cardInputSchema.safeParse({ ...newsCard, status: "draft", deepDiveBody: undefined });
   assert.equal(draft.success, true);
+});
+
+test("publishing requires the image's origin to be recorded", () => {
+  const unrecorded = cardInputSchema.safeParse({
+    ...newsCard,
+    imageOrigin: "unknown",
+    deepDiveBody: words(120),
+  });
+  assert.equal(unrecorded.success, false);
+  if (!unrecorded.success) {
+    assert.equal(unrecorded.error.issues.some((issue) => issue.path[0] === "imageOrigin"), true);
+  }
+});
+
+test("an unrecorded image origin still saves as a draft", () => {
+  const draft = cardInputSchema.safeParse({
+    ...newsCard,
+    status: "draft",
+    imageOrigin: "unknown",
+    deepDiveBody: undefined,
+  });
+  assert.equal(draft.success, true);
+});
+
+test("a re-hosted publisher image cannot be saved without its credit", () => {
+  const uncredited = cardInputSchema.safeParse({
+    ...newsCard,
+    imageOrigin: "source_permitted",
+    deepDiveBody: words(120),
+  });
+  assert.equal(uncredited.success, false);
+  if (!uncredited.success) {
+    assert.equal(uncredited.error.issues.some((issue) => issue.path[0] === "imageCredit"), true);
+  }
+
+  const credited = cardInputSchema.safeParse({
+    ...newsCard,
+    imageOrigin: "source_permitted",
+    imageCredit: "PIB",
+    deepDiveBody: words(120),
+  });
+  assert.equal(credited.success, true);
 });

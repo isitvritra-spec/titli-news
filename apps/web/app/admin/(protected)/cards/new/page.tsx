@@ -24,6 +24,8 @@ export default async function NewCardPage(props: PageProps<"/admin/cards/new">) 
     ? {
         cardType: "news",
         headline: candidate.title,
+        // Kept so the publish gate can tell a rewrite from a verbatim copy.
+        sourceHeadline: candidate.title,
         sourceId: matchingSource?.id,
         sourceDate: candidate.pubDate ? candidate.pubDate.slice(0, 10) : undefined,
         imagePath: candidate.draftImagePath ?? undefined,
@@ -31,6 +33,9 @@ export default async function NewCardPage(props: PageProps<"/admin/cards/new">) 
         imageWidth: candidate.draftImageWidth ?? undefined,
         imageHeight: candidate.draftImageHeight ?? undefined,
         imageBlurDataUrl: candidate.draftImageBlurDataUrl ?? undefined,
+        imageOrigin: candidate.draftImageOrigin ?? undefined,
+        imageCredit: candidate.draftImageCredit,
+        imageSourceUrl: candidate.draftImageOrigin === "source_permitted" ? candidate.link : null,
       }
     : undefined;
 

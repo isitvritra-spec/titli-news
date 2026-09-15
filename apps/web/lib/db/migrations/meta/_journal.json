@@ -57,6 +57,13 @@
       "when": 1788541580000,
       "tag": "0007_agency_story_mix",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789600000000,
+      "tag": "0008_image_provenance",
+      "breakpoints": true
     }
   ]
 }

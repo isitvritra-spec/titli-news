@@ -19,6 +19,11 @@ export type CardFormInitialData = {
   imageWidth: number;
   imageHeight: number;
   imageBlurDataUrl: string;
+  imageOrigin: "licensed_stock" | "source_permitted" | "own_upload" | "generated" | "unknown";
+  imageCredit: string | null;
+  imageLicence: string | null;
+  imageSourceUrl: string | null;
+  sourceHeadline: string | null;
   publishedAt: string;
   isContested: boolean;
   contestedNote: string | null;
@@ -80,6 +85,12 @@ export function CardForm({
   const [imageWidth, setImageWidth] = useState(initialData?.imageWidth ?? 0);
   const [imageHeight, setImageHeight] = useState(initialData?.imageHeight ?? 0);
   const [imageBlurDataUrl, setImageBlurDataUrl] = useState(initialData?.imageBlurDataUrl ?? "");
+  const [imageOrigin, setImageOrigin] = useState<CardFormInitialData["imageOrigin"]>(
+    initialData?.imageOrigin ?? "unknown",
+  );
+  const [imageCredit, setImageCredit] = useState(initialData?.imageCredit ?? "");
+  const [imageLicence, setImageLicence] = useState(initialData?.imageLicence ?? "");
+  const [imageSourceUrl, setImageSourceUrl] = useState(initialData?.imageSourceUrl ?? "");
   const [uploading, setUploading] = useState(false);
   const [publishedAt, setPublishedAt] = useState(toDatetimeLocal(initialData?.publishedAt ?? ""));
   const [isContested, setIsContested] = useState(initialData?.isContested ?? false);
@@ -153,6 +164,12 @@ export function CardForm({
     setImageWidth(saved.width);
     setImageHeight(saved.height);
     setImageBlurDataUrl(saved.blurDataURL);
+    // Replacing the image replaces its provenance — an editor's own upload
+    // carries none of the previous file's credit or licence.
+    setImageOrigin("own_upload");
+    setImageCredit("");
+    setImageLicence("");
+    setImageSourceUrl("");
   }
 
   async function onCreateSource() {
@@ -200,6 +217,11 @@ export function CardForm({
       imageWidth,
       imageHeight,
       imageBlurDataUrl,
+      imageOrigin,
+      imageCredit: imageCredit || undefined,
+      imageLicence: imageLicence || undefined,
+      imageSourceUrl: imageSourceUrl || undefined,
+      sourceHeadline: initialData?.sourceHeadline || undefined,
       publishedAt: new Date(publishedAt).toISOString(),
       isContested,
       contestedNote: isContested ? contestedNote : undefined,
@@ -306,6 +328,38 @@ export function CardForm({
       <Field label="Image alt text">
         <TextInput value={imageAlt} onChange={setImageAlt} />
       </Field>
+
+      <Field label="Where this image came from">
+        <select
+          value={imageOrigin}
+          onChange={(e) => setImageOrigin(e.target.value as CardFormInitialData["imageOrigin"])}
+          className={inputClass}
+        >
+          <option value="unknown">Not recorded yet</option>
+          <option value="own_upload">Our own photograph or artwork</option>
+          <option value="generated">Generated placeholder</option>
+          <option value="licensed_stock">Licensed stock</option>
+          <option value="source_permitted">Publisher image, reuse permitted</option>
+        </select>
+        <p className="mt-1 text-caption text-muted">
+          A card cannot be published while this is unrecorded. Only pick the last option when the
+          source is set to allow image reuse.
+        </p>
+      </Field>
+
+      {imageOrigin === "source_permitted" || imageOrigin === "licensed_stock" ? (
+        <>
+          <Field label="Image credit">
+            <TextInput value={imageCredit} onChange={setImageCredit} />
+          </Field>
+          <Field label="Image licence">
+            <TextInput value={imageLicence} onChange={setImageLicence} />
+          </Field>
+          <Field label="Image source URL">
+            <TextInput value={imageSourceUrl} onChange={setImageSourceUrl} />
+          </Field>
+        </>
+      ) : null}
 
       <Field label="Topics">
         <div className="flex flex-wrap gap-2">

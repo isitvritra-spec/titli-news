@@ -32,6 +32,7 @@ function toImageAsset(row: CardRow): ImageAsset {
     width: row.imageWidth,
     height: row.imageHeight,
     blurDataURL: row.imageBlurDataUrl,
+    credit: row.imageCredit ?? undefined,
   };
 }
 

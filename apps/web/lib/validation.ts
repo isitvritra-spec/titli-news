@@ -23,6 +23,17 @@ export const cardInputSchema = z
     imageWidth: z.number().int().positive(),
     imageHeight: z.number().int().positive(),
     imageBlurDataUrl: z.string().min(1),
+    imageOrigin: z.enum([
+      "licensed_stock",
+      "source_permitted",
+      "own_upload",
+      "generated",
+      "unknown",
+    ]),
+    imageCredit: z.string().optional(),
+    imageLicence: z.string().optional(),
+    imageSourceUrl: z.string().optional(),
+    sourceHeadline: z.string().optional(),
     publishedAt: z.string().min(1),
     isContested: z.boolean(),
     contestedNote: z.string().optional(),
@@ -64,6 +75,26 @@ export const cardInputSchema = z
           path: ["deepDiveBody"],
         });
       }
+    }
+
+    // A re-hosted publisher photo must carry its credit — that is the whole
+    // point of allowing the source in the first place.
+    if (data.imageOrigin === "source_permitted" && !data.imageCredit) {
+      ctx.addIssue({
+        code: "custom",
+        message: "A re-hosted source image needs a credit line",
+        path: ["imageCredit"],
+      });
+    }
+
+    // "unknown" is the backfill value for cards that predate provenance
+    // tracking; nothing new should publish without a real answer.
+    if (data.status === "published" && data.imageOrigin === "unknown") {
+      ctx.addIssue({
+        code: "custom",
+        message: "Set where this image came from before publishing",
+        path: ["imageOrigin"],
+      });
     }
 
     if (!data.topicIds.includes(data.primaryTopicId)) {
