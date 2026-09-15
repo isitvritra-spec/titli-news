@@ -1,6 +1,16 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
@@ -16,13 +26,28 @@ import { trackEvent } from "../../lib/analytics";
 import { getCardSignalTopics } from "../../lib/personalization";
 import { recordReaderSignal } from "../../lib/readerProfile";
 import { openExternalUrl } from "../../lib/openExternalUrl";
+import { Symbol } from "../../components/ui/Symbol";
+import { editorial as e, type } from "../../components/ui/theme";
 
-export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+export function ErrorBoundary({
+  error,
+  retry,
+}: {
+  error: Error;
+  retry: () => void;
+}) {
   return (
     <View className="flex-1 items-center justify-center gap-3 bg-bg px-8">
-      <Text className="text-center font-headline text-title text-ink">Something went wrong.</Text>
-      <Text className="text-center font-body text-caption text-muted">{error.message}</Text>
-      <Pressable onPress={retry} className="min-h-11 justify-center rounded-full bg-red px-5">
+      <Text className="text-center font-headline text-title text-ink">
+        Something went wrong.
+      </Text>
+      <Text className="text-center font-body text-caption text-muted">
+        {error.message}
+      </Text>
+      <Pressable
+        onPress={retry}
+        className="min-h-11 justify-center rounded-full bg-red px-5"
+      >
         <Text className="font-label text-surface">Try again</Text>
       </Pressable>
     </View>
@@ -33,6 +58,8 @@ export default function CardDetail() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const [scrolled, setScrolled] = useState(false);
   const savedIds = useSavedCardIds();
   const toggleSaved = useToggleSaved();
   const trackedDetailCard = useRef<string | null>(null);
@@ -60,7 +87,9 @@ export default function CardDetail() {
   if (!card) {
     return (
       <View className="flex-1 items-center justify-center bg-bg px-8">
-        <Text className="text-center font-headline text-title text-ink">Card not found.</Text>
+        <Text className="text-center font-headline text-title text-ink">
+          Card not found.
+        </Text>
       </View>
     );
   }
@@ -70,68 +99,169 @@ export default function CardDetail() {
   const isSaved = savedIds.includes(card.id);
   const source = isData ? card.surveySource : card.source;
   const deepDiveParagraphs = card.deepDiveBody
-    ? card.deepDiveBody.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean)
+    ? card.deepDiveBody
+        .split(/\n{2,}/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean)
     : [];
 
   return (
-    <View className="flex-1 bg-surface">
+    <View style={{ flex: 1, backgroundColor: e.paper }}>
+      <StatusBar style={scrolled || isData ? "dark" : "light"} />
       <View
-        className="z-20 flex-row items-end border-b border-hairline bg-surface px-5 pb-3"
-        style={{ paddingTop: insets.top + 10 }}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 20,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 22,
+          paddingTop: insets.top + 8,
+          paddingBottom: 10,
+          backgroundColor: scrolled ? e.paper : "transparent",
+        }}
       >
         <Pressable
-          onPress={() => router.back()}
+          onPress={() =>
+            router.canGoBack() ? router.back() : router.replace("/(tabs)")
+          }
           aria-label="Back"
-          className="h-11 flex-row items-center gap-1.5 rounded-full bg-surface2 px-3"
+          accessibilityRole="button"
+          style={detailStyle.roundButton}
         >
           <ChevronLeftIcon size={19} color={colors.ink} />
-          <Text className="font-label text-[11px] text-ink">Today</Text>
         </Pressable>
-        <View className="mx-3 min-w-0 flex-1">
-          <Text className="text-center font-label text-[11px] uppercase tracking-[1.5px] text-red">
-            Read deeper
+        {scrolled ? (
+          <Text
+            numberOfLines={1}
+            style={[
+              type.label,
+              { flex: 1, textAlign: "center", paddingHorizontal: 16 },
+            ]}
+          >
+            {source.name}
           </Text>
-        </View>
+        ) : null}
         <Pressable
-          onPress={() => {
-            toggleSaved(card.id);
-            trackEvent(isSaved ? "card_unsave" : "card_save", { cardId: card.id });
-            if (!isSaved) void recordReaderSignal("save", getCardSignalTopics(card));
-          }}
-          aria-label={isSaved ? "Remove from saved" : "Save"}
-          className="h-11 w-11 items-center justify-center rounded-full bg-surface2"
+          onPress={() => router.push("/(tabs)/topics?search=1")}
+          accessibilityRole="button"
+          accessibilityLabel="Search stories"
+          style={detailStyle.roundButton}
         >
-          <BookmarkIcon size={17} color={isSaved ? colors.red : colors.ink} active={isSaved} />
+          <Symbol name="search" size={20} />
         </Pressable>
       </View>
 
       <ScrollView
-        stickyHeaderIndices={[1]}
+        onScroll={(event) =>
+          setScrolled(
+            event.nativeEvent.contentOffset.y >
+              Math.min(height * 0.46, 410) - insets.top - 65,
+          )
+        }
+        scrollEventThrottle={32}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 72 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 50 }}
       >
-        {isData && card.metric ? (
-          <View className="h-72 items-center justify-center overflow-hidden bg-lime px-6">
-            <View className="absolute -right-7 -top-10 h-36 w-36 rotate-12 rounded-[40px] border-[3px] border-ink opacity-15" />
-            <Text className="font-headline text-[78px] leading-[102px] text-ink" style={{ fontVariant: ["tabular-nums"] }}>
-              {card.metric.value}{card.metric.unit}
-            </Text>
-            <Text className="font-label text-caption uppercase tracking-[2px] text-ink">The number / verified</Text>
-          </View>
-        ) : (
+        <View style={{ height: Math.min(height * 0.46, 410), minHeight: 290 }}>
           <Image
             source={{ uri: card.image.url }}
             placeholder={{ uri: card.image.blurDataURL }}
             contentFit="cover"
-            style={{ width: "100%", height: 310 }}
+            style={{ width: "100%", height: "100%" }}
             accessibilityLabel={card.image.alt}
           />
-        )}
+          {isData && card.metric ? (
+            <LinearGradient
+              colors={["#11121010", "#111210E8"]}
+              locations={[0.12, 1]}
+              style={StyleSheet.absoluteFill}
+            >
+              <View style={detailStyle.metricHero}>
+              <Text style={[type.label, { color: e.white }]}>
+                Behind the number
+              </Text>
+              <Text
+                className="font-headline text-[78px] leading-[102px] text-white"
+                style={{ fontVariant: ["tabular-nums"], marginTop: 2 }}
+              >
+                {card.metric.value}
+                {card.metric.unit}
+              </Text>
+              <Text style={[type.body, { color: e.white }]}>
+                {source.name} ·{" "}
+                {card.primaryGenre?.title ?? "The bigger picture"}
+              </Text>
+              </View>
+            </LinearGradient>
+          ) : (
+            <LinearGradient
+              pointerEvents="none"
+              colors={["#11121060", "transparent", "#11121050"]}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+        </View>
 
         <View
-          className="border-b border-hairline bg-surface px-5 pb-4 pt-4"
-          style={{ shadowColor: colors.ink, shadowOpacity: 0.08, shadowRadius: 14, elevation: 5 }}
+          style={{
+            backgroundColor: e.paper,
+            marginTop: -26,
+            borderTopLeftRadius: 30,
+            borderTopRightRadius: 30,
+            paddingHorizontal: 24,
+            paddingTop: 24,
+            paddingBottom: 20,
+          }}
         >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 18,
+              gap: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 14,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: e.ink,
+              }}
+            >
+              <Text style={[type.button, { color: e.paper }]}>
+                {source.name.slice(0, 2).toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={type.button}>{source.name}</Text>
+              <Text style={[type.body, { fontSize: 12, lineHeight: 17 }]}>
+                {card.primaryGenre?.title ?? "News, with perspective"}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isSaved ? "Remove from saved" : "Save story"}
+              accessibilityState={{ selected: isSaved }}
+              onPress={() => {
+                toggleSaved(card.id);
+                trackEvent(isSaved ? "card_unsave" : "card_save", {
+                  cardId: card.id,
+                });
+                if (!isSaved)
+                  void recordReaderSignal("save", getCardSignalTopics(card));
+              }}
+              style={[detailStyle.roundButton, { backgroundColor: e.lilac }]}
+            >
+              <BookmarkIcon color={e.ink} size={21} active={isSaved} />
+            </Pressable>
+          </View>
           <View className="mb-2 flex-row flex-wrap items-center gap-2">
             {card.isContested ? <ContestedBadge /> : null}
             <View className="rounded-full bg-peach px-3 py-1.5">
@@ -141,7 +271,9 @@ export default function CardDetail() {
             </View>
           </View>
 
-          <Text className="font-headline text-[28px] leading-[38px] text-ink">{card.headline}</Text>
+          <Text style={[type.title, { fontSize: 31, lineHeight: 39 }]}>
+            {card.headline}
+          </Text>
 
           <Text className="mt-2 font-body text-[11px] uppercase tracking-[1.2px] text-muted">
             {isData && trend?.latest
@@ -152,8 +284,7 @@ export default function CardDetail() {
           </Text>
         </View>
 
-        <View className="px-5 pt-5">
-
+        <View style={{ paddingHorizontal: 24, paddingTop: 4 }}>
           {card.correctionNote && card.correctedAt ? (
             <View className="mb-5 rounded-[20px] border border-red bg-surface p-4">
               <Text className="font-label text-caption uppercase tracking-wider text-red">
@@ -165,10 +296,22 @@ export default function CardDetail() {
             </View>
           ) : null}
 
-          <Text className="font-headline text-[21px] leading-[31px] text-ink">{card.body}</Text>
+          <Text
+            style={{
+              fontFamily: e.serif,
+              fontSize: 21,
+              lineHeight: 32,
+              color: e.ink,
+            }}
+          >
+            {card.body}
+          </Text>
 
           {deepDiveParagraphs.map((paragraph, index) => (
-            <Text key={index} className="mt-5 font-body text-[17px] leading-[28px] text-ink">
+            <Text
+              key={index}
+              className="mt-5 font-body text-[17px] leading-[28px] text-ink"
+            >
               {paragraph}
             </Text>
           ))}
@@ -177,12 +320,17 @@ export default function CardDetail() {
             <Pressable
               onPress={() => {
                 trackEvent("source_open", { cardId: card.id });
-                void recordReaderSignal("source_open", getCardSignalTopics(card));
+                void recordReaderSignal(
+                  "source_open",
+                  getCardSignalTopics(card),
+                );
                 void openExternalUrl(source.url);
               }}
               className="mt-7 items-center rounded-full bg-red px-5 py-3.5"
             >
-              <Text className="font-label text-label text-surface">Read at {source.name}</Text>
+              <Text className="font-label text-label text-surface">
+                Read at {source.name}
+              </Text>
             </Pressable>
           ) : null}
 
@@ -190,12 +338,17 @@ export default function CardDetail() {
             <Pressable
               onPress={() => {
                 trackEvent("source_open", { cardId: card.id });
-                void recordReaderSignal("source_open", getCardSignalTopics(card));
+                void recordReaderSignal(
+                  "source_open",
+                  getCardSignalTopics(card),
+                );
                 void openExternalUrl(source.url);
               }}
               className="mt-8 flex-row items-center justify-center rounded-full bg-red px-5 py-3.5"
             >
-              <Text className="font-label text-label text-surface">Open original source</Text>
+              <Text className="font-label text-label text-surface">
+                Open original source
+              </Text>
             </Pressable>
           ) : null}
 
@@ -229,8 +382,12 @@ export default function CardDetail() {
 
           {isData && card.methodologyNote ? (
             <View className="mt-5 rounded-[20px] bg-surface p-4">
-              <Text className="font-label text-caption uppercase tracking-wider text-red">Method note</Text>
-              <Text className="mt-2 font-body text-caption leading-5 text-muted">{card.methodologyNote}</Text>
+              <Text className="font-label text-caption uppercase tracking-wider text-red">
+                Method note
+              </Text>
+              <Text className="mt-2 font-body text-caption leading-5 text-muted">
+                {card.methodologyNote}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -249,7 +406,10 @@ function DataSection({
   children: ReactNode;
 }) {
   return (
-    <View className="mt-6 overflow-hidden rounded-[22px] p-4" style={{ backgroundColor: canvas }}>
+    <View
+      className="mt-6 overflow-hidden rounded-[22px] p-4"
+      style={{ backgroundColor: canvas }}
+    >
       <Text className="mb-2 font-headline text-[24px] text-ink">{title}</Text>
       {children}
     </View>
@@ -264,3 +424,20 @@ function DataRow({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
+
+const detailStyle = StyleSheet.create({
+  metricHero: {
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 28,
+    paddingBottom: 50,
+  },
+  roundButton: {
+    width: 46,
+    height: 46,
+    borderRadius: 24,
+    backgroundColor: e.paper,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

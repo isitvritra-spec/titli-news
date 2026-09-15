@@ -9,19 +9,18 @@ import { SaveButton } from "./SaveButton";
 import { ShareButton } from "./ShareButton";
 
 /**
- * Mirrors apps/mobile/components/ReadingCard.tsx: same tokens, same layout
- * proportions, same copy — a separate implementation because RN has no DOM,
- * but built to look like the same product. Image is its own block up top,
- * ~40% of the card (not a full-bleed background with text overlaid) — text
- * sits below it on the flat near-black, so no gradient scrim is needed.
+ * Mirrors apps/mobile/components/ReadingCard.tsx: same editorial canvas,
+ * proportions, and reading hierarchy, with DOM-native navigation and actions.
  */
-export function ReadingCard({ card }: { card: Card }) {
+export function ReadingCard({ card, index = 0 }: { card: Card; index?: number }) {
   const isData = isDataCard(card);
   const trend = isData ? computeTrend(card.readings) : null;
+  const canvases = ["bg-peach", "bg-lilac", "bg-lime", "bg-sage", "bg-sky"];
+  const canvas = canvases[index % canvases.length];
 
   return (
-    <section className="h-dvh w-full snap-start snap-always shrink-0 flex flex-col bg-bg">
-      <div className="relative h-[40%] w-full shrink-0 overflow-hidden">
+    <section className={`h-dvh w-full snap-start snap-always shrink-0 flex flex-col ${canvas}`}>
+      <div className="relative h-[31%] min-h-[170px] w-full shrink-0 overflow-hidden md:mx-auto md:mt-14 md:h-[36%] md:max-w-2xl md:rounded-[28px]">
         <Image
           src={card.image.url}
           alt={card.image.alt}
@@ -36,7 +35,7 @@ export function ReadingCard({ card }: { card: Card }) {
 
       <Link
         href={`/card/${card.slug}`}
-        className="flex flex-1 flex-col px-5 pt-4 md:mx-auto md:w-full md:max-w-xl"
+        className="flex flex-1 flex-col bg-surface px-5 pt-4 md:mx-auto md:mt-3 md:w-full md:max-w-2xl md:rounded-[28px] md:px-7"
       >
         {card.isContested || card.correctedAt ? (
           <div className="mb-3 flex items-center gap-2">
@@ -49,7 +48,7 @@ export function ReadingCard({ card }: { card: Card }) {
           </div>
         ) : null}
 
-        <h2 className="font-headline text-title text-ink line-clamp-3">{card.headline}</h2>
+        <h2 className="font-headline text-[28px] leading-[35px] text-ink line-clamp-3">{card.headline}</h2>
 
         {isData && card.metric ? (
           <p className="mt-1 font-headline text-hero text-ink tabular-nums">
@@ -76,7 +75,7 @@ export function ReadingCard({ card }: { card: Card }) {
           {isData ? (
             <span />
           ) : (
-            <span className="text-caption uppercase tracking-wide text-muted">
+            <span className="font-label text-caption uppercase tracking-[1.4px] text-muted">
               {card.source.name} · {formatCardDate(card.sourceDate)}
             </span>
           )}

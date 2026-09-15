@@ -1,10 +1,7 @@
 import { Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Animated, { FadeInDown } from "react-native-reanimated";
-import { colors, derived } from "@repo/tokens";
-
-import { ButterflyMark } from "./icons";
+import { SearchButton } from "./ui/SearchButton";
+import { editorial as e, type } from "./ui/theme";
 
 export function EditorialHeader({
   eyebrow,
@@ -12,67 +9,72 @@ export function EditorialHeader({
   description,
   compact = false,
   progress,
+  onSearch,
+  greeting = false,
+  searchActive = false,
 }: {
   eyebrow: string;
   title: string;
   description?: string;
   compact?: boolean;
   progress?: { current: number; total: number };
+  onSearch?: () => void;
+  greeting?: boolean;
+  searchActive?: boolean;
 }) {
   const insets = useSafeAreaInsets();
-
   return (
-    <Animated.View
-      entering={FadeInDown.duration(360)}
+    <View
       style={{
         paddingTop: insets.top + 8,
-        paddingHorizontal: 20,
-        backgroundColor: colors.surface,
-        borderBottomWidth: 1,
-        borderBottomColor: derived.hairline,
+        paddingHorizontal: 22,
+        paddingBottom: 10,
+        backgroundColor: e.paper,
       }}
     >
-      <View className="flex-row items-center pb-3">
-        <ButterflyMark size={compact ? 24 : 28} color={colors.red} />
-        <View className="ml-2.5 min-w-0 flex-1">
-          <Text className="font-label text-[11px] uppercase tracking-[1.6px] text-red">
-            {eyebrow}
-          </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          {greeting && (
+            <Text style={[type.body, { fontSize: 13, lineHeight: 19 }]}>
+              Hi, curious mind.
+            </Text>
+          )}
           <Text
-            className={`font-headline text-ink ${compact ? "text-[22px] leading-[30px]" : "text-[36px] leading-[47px]"}`}
-            numberOfLines={1}
+            style={[
+              type.title,
+              { fontSize: compact ? 25 : 30, lineHeight: compact ? 32 : 38 },
+            ]}
           >
-            {title}
+            {title === "TITLI" ? "Your daily Titli" : title}
           </Text>
         </View>
-        {progress ? (
-          <Text className="ml-3 font-label text-[11px] tabular-nums text-muted">
-            {Math.min(progress.current, progress.total)}/{progress.total}
-          </Text>
-        ) : null}
+        <SearchButton onPress={onSearch} active={searchActive} />
       </View>
-
       {description ? (
-        <Text className="max-w-[92%] pb-4 font-body text-[15px] leading-[22px] text-muted">
+        <Text style={[type.body, { fontSize: 14, marginTop: 8 }]}>
           {description}
         </Text>
       ) : null}
-
       {progress ? (
-        <View className="pb-3 pt-1">
-          <View className="h-px overflow-hidden bg-hairline">
-            <LinearGradient
-              colors={[colors.red, colors.plum, colors.lime]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{
-                width: `${Math.min(progress.current / progress.total, 1) * 100}%`,
-                height: 1,
-              }}
-            />
-          </View>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            marginTop: 8,
+          }}
+        >
+          <Text
+            numberOfLines={1}
+            style={[type.label, { flex: 1, fontSize: 9, letterSpacing: 1 }]}
+          >
+            {eyebrow}
+          </Text>
+          <Text style={[type.label, { fontSize: 11 }]}>
+            {Math.min(progress.current, progress.total)}/{progress.total}
+          </Text>
         </View>
       ) : null}
-    </Animated.View>
+    </View>
   );
 }

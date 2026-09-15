@@ -1,72 +1,81 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
-  Vibration,
+  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import Animated, { FadeIn, FadeInDown, SlideInDown, SlideOutDown } from "react-native-reanimated";
-import { isDataCard, type Topic } from "@repo/api-client";
-import { colors, derived } from "@repo/tokens";
-
+import Animated, {
+  FadeInDown,
+  FadeOutUp,
+  LinearTransition,
+} from "react-native-reanimated";
+import { isDataCard } from "@repo/api-client";
+import { fontFamily } from "@repo/tokens";
 import { api } from "../../lib/api";
 import { trackEvent } from "../../lib/analytics";
-import { getCheckInFeedback, pressureFromDuration } from "../../lib/checkIn";
-import { type ExploreMode, useExploreMode, useSetExploreMode } from "../../lib/exploreMode";
+import {
+  type ExploreMode,
+  useExploreMode,
+  useSetExploreMode,
+} from "../../lib/exploreMode";
 import { useSelectedTopics, useToggleTopic } from "../../lib/topicSelection";
-import { ButterflyMark, CheckIcon, PulseIcon, SparkIcon } from "../../components/icons";
-import { SwipeableTabScreen } from "../../components/SwipeableTabScreen";
+import { useSavedCardIds, useToggleSaved } from "../../lib/savedCards";
+import {
+  BookmarkIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  PulseIcon,
+} from "../../components/icons";
+import { EditorialHeader } from "../../components/EditorialHeader";
+import { Symbol } from "../../components/ui/Symbol";
+import { editorial as e, type } from "../../components/ui/theme";
 
-const exploreCanvases = [colors.peach, colors.sky, colors.lilac, colors.lime, colors.sage];
-const modeOptions: Array<{ id: ExploreMode; label: string; canvas: string }> = [
-  { id: "Surprise me", label: "Surprise", canvas: colors.lilac },
-  { id: "Useful", label: "Useful", canvas: colors.sage },
-  { id: "Hopeful", label: "Hopeful", canvas: colors.lime },
-  { id: "Debatable", label: "Debatable", canvas: colors.peach },
-];
-
-function orderScore(value: string, salt: string) {
+const canvases = [e.lime, e.lilac, e.peach, e.blue];
+const modes: ExploreMode[] = ["Surprise me", "Useful", "Hopeful", "Debatable"];
+function score(value: string, salt: string) {
   return [...`${salt}:${value}`].reduce(
-    (total, character) => ((total * 31) + character.charCodeAt(0)) % 10_007,
+    (n, c) => (n * 31 + c.charCodeAt(0)) % 10007,
     7,
   );
 }
 
-function arrangeTopics(topics: Topic[], mode: ExploreMode, selected: readonly string[]) {
-  const selectedSet = new Set(selected);
-  return [...topics].sort((a, b) => {
-    const selectionDifference = Number(selectedSet.has(b.slug)) - Number(selectedSet.has(a.slug));
-    return selectionDifference || orderScore(a.slug, mode) - orderScore(b.slug, mode);
-  });
-}
-
 export default function Topics() {
   const router = useRouter();
-  const { checkin } = useLocalSearchParams<{ checkin?: string }>();
-  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ search?: string; checkin?: string }>();
   const { width } = useWindowDimensions();
+  const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(params.search === "1");
+  const [topicFilter, setTopicFilter] = useState<string | null>(null);
+  const [storyIndex, setStoryIndex] = useState(0);
+  const [showAll, setShowAll] = useState(false);
+  const input = useRef<TextInput>(null);
+  const rail = useRef<ScrollView>(null);
+  const page = useRef<ScrollView>(null);
   const mode = useExploreMode();
   const setMode = useSetExploreMode();
-  const [storyIndex, setStoryIndex] = useState(0);
-  const [showAllTopics, setShowAllTopics] = useState(false);
-  const [checkInOpen, setCheckInOpen] = useState(checkin === "1");
-  const page = useRef<ScrollView>(null);
-  const storyRail = useRef<ScrollView>(null);
-  const storyOffset = useRef(0);
-  const { data: topics = [], isPending: topicsPending } = useQuery({
+  const selected = useSelectedTopics();
+  const toggle = useToggleTopic();
+  const savedIds = useSavedCardIds();
+  const toggleSaved = useToggleSaved();
+  const { data: topics = [] } = useQuery({
     queryKey: ["topics"],
     queryFn: () => api.getTopics(),
   });
-  const { data: cards = [], isPending: cardsPending } = useQuery({
+  const {
+    data: cards = [],
+    isPending,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["feed", "explore"],
     queryFn: () => api.getFeed({}),
   });
@@ -74,360 +83,594 @@ export default function Topics() {
     queryKey: ["pulse"],
     queryFn: () => api.getPulse(),
   });
-  const selected = useSelectedTopics();
-  const toggle = useToggleTopic();
-  const storyWidth = width - 36;
-  const orderedTopics = arrangeTopics(topics, mode, selected);
-  const visibleTopics = showAllTopics ? orderedTopics : orderedTopics.slice(0, 4);
-  const orderedCards = [...cards].sort((a, b) => orderScore(a.slug, mode) - orderScore(b.slug, mode));
-  const activeMode = modeOptions.find((item) => item.id === mode) ?? modeOptions[0]!;
-  const pulseMetric = pulse[0];
-
-  function chooseMode(nextMode: ExploreMode) {
-    setMode(nextMode);
+  const { data: edition } = useQuery({
+    queryKey: ["today-edition"],
+    queryFn: () => api.getTodayEdition(),
+  });
+  const storyWidth = Math.min(width - 56, 440);
+  const ordered = [...cards]
+    .filter(
+      (card) =>
+        (!topicFilter || card.topics.some((t) => t.slug === topicFilter)) &&
+        `${card.headline} ${card.body} ${card.topics.map((t) => t.title).join(" ")}`
+          .toLowerCase()
+          .includes(query.trim().toLowerCase()),
+    )
+    .sort((a, b) => {
+      const preferred = (card: typeof a) => {
+        const entry = edition?.cards.find((item) => item.card.id === card.id);
+        return mode === "Hopeful"
+          ? Number(entry?.role === "lift") * 3 +
+              Number(entry?.distressLevel === "low")
+          : mode === "Useful"
+            ? (entry?.practicalUtility ?? 0)
+            : mode === "Debatable"
+              ? Number(card.isContested)
+              : 0;
+      };
+      return (
+        preferred(b) - preferred(a) || score(a.slug, mode) - score(b.slug, mode)
+      );
+    })
+    .slice(0, 7);
+  const metric = pulse[0];
+  useEffect(() => {
+    if (params.search === "1") {
+      setSearchOpen(true);
+      input.current?.focus();
+    }
+  }, [params.search]);
+  useEffect(() => {
+    if (params.checkin === "1") {
+      router.setParams({ checkin: undefined });
+      router.push("/shh");
+    }
+  }, [params.checkin, router]);
+  useEffect(() => {
     setStoryIndex(0);
-    storyRail.current?.scrollTo({ x: 0, animated: true });
-  }
-
-  function settleStoryRail(offset: number) {
-    const maxIndex = Math.max(orderedCards.slice(0, 7).length - 1, 0);
-    const next = Math.min(Math.max(Math.round(offset / (storyWidth + 12)), 0), maxIndex);
+    rail.current?.scrollTo({ x: 0, animated: false });
+  }, [mode, topicFilter, query]);
+  function jump(index: number) {
+    const next = Math.max(0, Math.min(index, ordered.length - 1));
     setStoryIndex(next);
-    storyRail.current?.scrollTo({ x: next * (storyWidth + 12), animated: true });
+    rail.current?.scrollTo({ x: next * (storyWidth + 12), animated: true });
   }
-
-  function chooseSofterMix() {
-    chooseMode("Hopeful");
-    setCheckInOpen(false);
+  function openSearch() {
+    setSearchOpen(true);
     page.current?.scrollTo({ y: 0, animated: true });
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => input.current?.focus()),
+    );
   }
-
   return (
-    <SwipeableTabScreen current="explore">
-      <View className="bg-bg" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <View
-          className="flex-row items-center border-b border-hairline bg-surface px-[18px] pb-3"
-          style={{ paddingTop: insets.top + 9 }}
-        >
-          <ButterflyMark size={25} color={colors.red} />
-          <Text className="ml-2 font-headline text-[22px] leading-[30px] text-ink">TITLI</Text>
-          <Text className="ml-auto font-label text-[11px] uppercase tracking-[2.2px] text-red">Explore</Text>
+    <View style={{ flex: 1, backgroundColor: e.paper }}>
+      <EditorialHeader
+        eyebrow="Explore"
+        title="Explore"
+        compact
+        onSearch={openSearch}
+        searchActive={searchOpen}
+      />
+      <ScrollView
+        ref={page}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 125 }}
+      >
+        <View style={s.intro}>
+          {searchOpen && (
+            <Animated.View
+              entering={FadeInDown.duration(220)}
+              exiting={FadeOutUp.duration(160)}
+              layout={LinearTransition.duration(200)}
+              style={s.search}
+            >
+              <Symbol name="search" size={18} />
+              <TextInput
+                ref={input}
+                autoFocus
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Stories, ideas, things that matter…"
+                placeholderTextColor={e.muted}
+                accessibilityLabel="Search stories and topics"
+                style={{
+                  flex: 1,
+                  fontFamily: fontFamily.body,
+                  fontSize: 16,
+                  minHeight: 48,
+                  color: e.ink,
+                }}
+              />
+              <Pressable
+                onPress={() => {
+                  setQuery("");
+                  setSearchOpen(false);
+                  router.setParams({ search: undefined });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Close search"
+                style={s.smallButton}
+              >
+                <Symbol name="close" size={18} />
+              </Pressable>
+            </Animated.View>
+          )}
+          {!searchOpen && (
+            <Animated.View
+              entering={FadeInDown.duration(220)}
+              exiting={FadeOutUp.duration(150)}
+              layout={LinearTransition.duration(200)}
+            >
+              <Text
+                style={[
+                  type.title,
+                  { marginTop: 16, fontSize: 38, lineHeight: 44 },
+                ]}
+              >
+                A new way to{`\n`}see your world.
+              </Text>
+              <Text style={[type.body, { marginTop: 8 }]}>
+                Pick a feeling. Find a fresh perspective.
+              </Text>
+            </Animated.View>
+          )}
         </View>
-
-        <Animated.View key={mode} entering={FadeIn.duration(320)} className="absolute inset-x-0 top-16 h-[360px]">
-          <LinearGradient colors={[activeMode.canvas, colors.bg]} style={{ flex: 1 }} />
-        </Animated.View>
-
         <ScrollView
-          ref={page}
-          style={{ flex: 1, minHeight: 0 }}
-          showsVerticalScrollIndicator={false}
-          scrollEnabled={!checkInOpen}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 22,
+            gap: 8,
+            paddingBottom: 22,
+            paddingTop: 16,
+          }}
         >
-          <View className="px-[18px] pb-7 pt-5">
-            <Text className="font-label text-[11px] uppercase tracking-[1.8px] text-red">Choose the tone</Text>
-            <Text className="mt-2 font-headline text-[29px] leading-[36px] text-ink">What do you need now?</Text>
-
-            <View className="flex-row gap-1.5 pb-0.5 pt-3">
-              {modeOptions.map((item) => {
-                const isOn = item.id === mode;
+          {modes.map((item) => (
+            <Pressable
+              key={item}
+              onPress={() => setMode(item)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mode === item }}
+              aria-pressed={mode === item}
+              style={[
+                s.chip,
+                mode === item && { backgroundColor: e.ink, borderColor: e.ink },
+              ]}
+            >
+              <Text
+                style={[
+                  type.button,
+                  { fontSize: 14, color: mode === item ? e.white : e.ink },
+                ]}
+              >
+                {item}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        {isPending ? (
+          <ActivityIndicator style={{ height: 250 }} color={e.ink} />
+        ) : isError ? (
+          <View style={s.intro}>
+            <Text style={type.body}>The reading room couldn’t connect.</Text>
+            <Pressable onPress={() => refetch()} style={s.chip}>
+              <Text style={type.button}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : ordered.length === 0 ? (
+          <View style={[s.intro, { paddingVertical: 40 }]}>
+            <Text style={type.title}>A different direction?</Text>
+            <Text style={type.body}>No stories match this search yet.</Text>
+            <Pressable
+              onPress={() => {
+                setQuery("");
+                setTopicFilter(null);
+              }}
+              style={s.chip}
+            >
+              <Text style={type.button}>Show all stories</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <ScrollView
+              ref={rail}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={storyWidth + 12}
+              decelerationRate="fast"
+              disableIntervalMomentum
+              onMomentumScrollEnd={(event) =>
+                setStoryIndex(
+                  Math.max(
+                    0,
+                    Math.min(
+                      ordered.length - 1,
+                      Math.round(
+                        event.nativeEvent.contentOffset.x / (storyWidth + 12),
+                      ),
+                    ),
+                  ),
+                )
+              }
+              contentContainerStyle={{ paddingHorizontal: 22, gap: 12 }}
+            >
+              {ordered.map((card, index) => {
+                const dataCard = isDataCard(card) && card.metric;
+                const saved = savedIds.includes(card.id);
                 return (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => chooseMode(item.id)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: isOn }}
-                    className="min-h-11 flex-1 flex-row items-center justify-center rounded-full border px-1"
-                    style={{
-                      borderColor: isOn ? colors.ink : derived.hairline,
-                      backgroundColor: isOn ? colors.ink : item.canvas,
-                    }}
+                  <View
+                    key={card.id}
+                    style={[
+                      s.story,
+                      {
+                        width: storyWidth,
+                        backgroundColor: canvases[index % 4],
+                      },
+                    ]}
                   >
-                    {isOn ? <CheckIcon size={14} color={colors.surface} /> : null}
-                    <Text
-                      className="font-label text-[12px]"
-                      style={{ marginLeft: isOn ? 4 : 0, color: isOn ? colors.surface : colors.ink }}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Read ${card.headline}`}
+                      onPress={() => router.push(`/card/${card.slug}`)}
+                      style={{ flex: 1 }}
                     >
-                      {item.label}
-                    </Text>
-                  </Pressable>
+                      <View style={{ height: 245, overflow: "hidden" }}>
+                        <Image
+                          source={{ uri: card.image.url }}
+                          placeholder={{ uri: card.image.blurDataURL }}
+                          contentFit="cover"
+                          style={StyleSheet.absoluteFill}
+                          accessibilityLabel={card.image.alt}
+                        />
+                        <LinearGradient
+                          colors={
+                            dataCard
+                              ? ["#11121012", "#111210E8"]
+                              : ["transparent", "#11121070"]
+                          }
+                          locations={[0.08, 1]}
+                          style={StyleSheet.absoluteFill}
+                        />
+                        {dataCard ? (
+                          <View style={s.metricOnPhoto}>
+                            <Text style={[type.label, { color: e.white }]}>
+                              The bigger picture
+                            </Text>
+                            <Text
+                              adjustsFontSizeToFit
+                              numberOfLines={1}
+                              style={{
+                                fontFamily: fontFamily.headline,
+                                fontSize: Math.min(
+                                  84,
+                                  ((storyWidth - 48) * 1.5) /
+                                    `${dataCard.value}${dataCard.unit}`.length,
+                                ),
+                                lineHeight: 96,
+                                color: e.white,
+                              }}
+                            >
+                              {dataCard.value}
+                              {dataCard.unit}
+                            </Text>
+                            <Text
+                              style={[type.body, { color: e.white, fontSize: 14 }]}
+                            >
+                              {isDataCard(card) ? card.surveySource.name : ""}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <View style={{ padding: 20, paddingBottom: 12 }}>
+                        <Text style={[type.label, { color: e.ink }]}>
+                          {card.primaryGenre?.title ?? "A fresh perspective"}
+                        </Text>
+                        <Text
+                          numberOfLines={3}
+                          style={{
+                            fontFamily: fontFamily.headline,
+                            fontSize: 25,
+                            lineHeight: 30,
+                            marginTop: 8,
+                            color: e.ink,
+                            minHeight: 90,
+                          }}
+                        >
+                          {card.headline}
+                        </Text>
+                        <View style={s.read}>
+                          <Text style={type.button}>Read the story</Text>
+                          <View style={s.readArrow}>
+                            <Symbol name="arrow" color={e.white} size={20} />
+                          </View>
+                        </View>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        toggleSaved(card.id);
+                        trackEvent(saved ? "card_unsave" : "card_save", {
+                          cardId: card.id,
+                        });
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        saved ? "Remove from saved" : "Save story"
+                      }
+                      accessibilityState={{ selected: saved }}
+                      aria-pressed={saved}
+                      style={s.save}
+                    >
+                      <BookmarkIcon color={e.ink} size={21} active={saved} />
+                    </Pressable>
+                  </View>
                 );
               })}
-            </View>
-
-            <View className="mb-3 mt-6 flex-row items-end justify-between">
-              <View>
-                <Text className="font-label text-[11px] uppercase tracking-[1.8px] text-red">For this mood</Text>
-                <Text className="mt-1 font-headline text-[27px] leading-[34px] text-ink">Start with this.</Text>
-              </View>
-              <Text className="font-label text-[11px] tabular-nums text-muted">
-                {String(orderedCards.length === 0 ? 0 : Math.min(storyIndex + 1, orderedCards.length)).padStart(2, "0")}/
-                {String(Math.min(orderedCards.length, 7)).padStart(2, "0")}
+            </ScrollView>
+            <View style={s.railControls}>
+              <Text style={type.label}>
+                {String(storyIndex + 1).padStart(2, "0")} /{" "}
+                {String(ordered.length).padStart(2, "0")} ·{" "}
+                {topicFilter
+                  ? topics.find((t) => t.slug === topicFilter)?.title
+                  : "Selected for your curiosity"}
               </Text>
-            </View>
-
-            {cardsPending ? (
-              <View className="h-48 items-center justify-center"><ActivityIndicator color={colors.red} /></View>
-            ) : (
-              <Animated.View key={mode} entering={FadeIn.duration(300)}>
-                <ScrollView
-                  ref={storyRail}
-                  horizontal
-                  nestedScrollEnabled
-                  directionalLockEnabled
-                  showsHorizontalScrollIndicator={false}
-                  snapToInterval={storyWidth + 12}
-                  decelerationRate="fast"
-                  disableIntervalMomentum
-                  scrollEventThrottle={16}
-                  onScroll={(event) => { storyOffset.current = event.nativeEvent.contentOffset.x; }}
-                  onTouchEnd={() => settleStoryRail(storyOffset.current)}
-                  onScrollEndDrag={(event) => settleStoryRail(event.nativeEvent.contentOffset.x)}
-                  onMomentumScrollEnd={(event) => settleStoryRail(event.nativeEvent.contentOffset.x)}
-                  contentContainerStyle={{ gap: 12 }}
+              <View style={{ flexDirection: "row", gap: 4 }}>
+                <Pressable
+                  onPress={() => jump(storyIndex - 1)}
+                  disabled={storyIndex === 0}
+                  accessibilityRole="button"
+                  accessibilityLabel="Previous story"
+                  style={[
+                    s.smallButton,
+                    { opacity: storyIndex === 0 ? 0.3 : 1 },
+                  ]}
                 >
-                  {orderedCards.slice(0, 7).map((card, index) => (
-                    <View key={card.id} style={{ width: storyWidth, minWidth: storyWidth, flexShrink: 0, aspectRatio: 16 / 9 }}>
-                      <Pressable
-                        onPress={() => router.push(`/card/${card.slug}`)}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Read ${card.headline}`}
-                        className="overflow-hidden rounded-[24px] bg-ink"
-                        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
-                      >
-                        {isDataCard(card) && card.metric ? (
-                          <LinearGradient
-                            colors={[exploreCanvases[index % exploreCanvases.length]!, colors.plum]}
-                            style={{ width: "100%", height: "100%", paddingHorizontal: 20, paddingTop: 16 }}
-                          >
-                            <Text className="font-headline text-[46px] leading-[56px] text-ink">{card.metric.value}{card.metric.unit}</Text>
-                          </LinearGradient>
-                        ) : (
-                          <Image
-                            source={{ uri: card.image.url }}
-                            placeholder={{ uri: card.image.blurDataURL }}
-                            contentFit="cover"
-                            style={{ width: "100%", height: "100%" }}
-                            accessibilityLabel={card.image.alt}
-                          />
-                        )}
-                        <LinearGradient
-                          pointerEvents="none"
-                          colors={["transparent", derived.scrim]}
-                          style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, justifyContent: "flex-end", paddingHorizontal: 20, paddingBottom: 16 }}
-                        >
-                          <Text className="font-label text-[11px] uppercase tracking-[1.4px] text-peach">{card.primaryGenre?.title ?? "From Titli"}</Text>
-                          <Text className="mt-1 font-headline text-[21px] leading-[27px] text-surface" numberOfLines={2}>{card.headline}</Text>
-                        </LinearGradient>
-                      </Pressable>
-                    </View>
-                  ))}
-                </ScrollView>
-              </Animated.View>
-            )}
-          </View>
-
-          <View className="border-y border-hairline bg-surface px-[18px] py-6">
-            <View className="flex-row items-end justify-between">
-              <View className="max-w-[76%]">
-                <Text className="font-label text-[11px] uppercase tracking-[1.8px] text-red">Make it yours</Text>
-                <Text className="mt-1 font-headline text-[27px] leading-[34px] text-ink">Topics worth keeping close.</Text>
-              </View>
-              <Text className="pb-1 font-label text-[11px] text-muted">{selected.length} followed</Text>
-            </View>
-
-            {topicsPending ? (
-              <ActivityIndicator color={colors.red} style={{ marginTop: 30 }} />
-            ) : (
-              <View className="mt-4 gap-2">
-                {visibleTopics.map((topic, index) => {
-                  const isOn = selected.includes(topic.slug);
-                  return (
-                    <Animated.View key={topic.id} entering={FadeInDown.delay(index * 35).duration(260)}>
-                      <Pressable
-                        onPress={() => {
-                          toggle(topic.slug);
-                          trackEvent(isOn ? "genre_unfollow" : "genre_follow", { topicSlug: topic.slug });
-                        }}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: isOn }}
-                        className="min-h-[64px] flex-row items-center overflow-hidden rounded-[18px] px-4 py-2.5"
-                        style={({ pressed }) => ({
-                          marginLeft: index % 3 === 1 ? 12 : 0,
-                          marginRight: index % 3 === 2 ? 16 : 0,
-                          backgroundColor: isOn ? colors.ink : exploreCanvases[index % exploreCanvases.length],
-                          opacity: pressed ? 0.74 : 1,
-                        })}
-                      >
-                        <View className="min-w-0 flex-1">
-                          <Text className="font-headline text-[19px] leading-6" style={{ color: isOn ? colors.surface : colors.ink }}>{topic.title}</Text>
-                          {topic.shortDescription ? (
-                            <Text className="font-body text-[12px] leading-4" style={{ color: isOn ? colors.sage : colors.muted }} numberOfLines={1}>{topic.shortDescription}</Text>
-                          ) : null}
-                        </View>
-                        <View className="ml-3 h-11 w-11 items-center justify-center rounded-full border" style={{ borderColor: isOn ? colors.surface : colors.ink }}>
-                          {isOn ? <CheckIcon size={14} color={colors.surface} /> : <Text className="font-label text-[20px] text-ink">+</Text>}
-                        </View>
-                      </Pressable>
-                    </Animated.View>
-                  );
-                })}
-                {orderedTopics.length > 4 ? (
-                  <Pressable onPress={() => setShowAllTopics((current) => !current)} className="mt-2 min-h-11 items-center justify-center rounded-full border border-hairline" accessibilityRole="button">
-                    <Text className="font-label text-[12px] text-ink">{showAllTopics ? "Show fewer" : "See all topics"}</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            )}
-          </View>
-
-          <View className="bg-bg px-[18px] pb-7 pt-6">
-            <Text className="font-label text-[11px] uppercase tracking-[1.8px] text-red">Live and private</Text>
-            <Text className="mt-1 font-headline text-[27px] leading-[34px] text-ink">Check in, your way.</Text>
-
-            <Pressable onPress={() => router.push("/pulse")} accessibilityRole="button" className="mt-4 min-h-[82px] flex-row items-center rounded-[22px] bg-lime px-4 py-3" style={({ pressed }) => ({ opacity: pressed ? 0.76 : 1 })}>
-              <View className="h-11 w-11 items-center justify-center rounded-[15px] bg-surface/60"><PulseIcon size={23} color={colors.ink} /></View>
-              <View className="ml-3 min-w-0 flex-1">
-                <Text className="font-label text-[11px] uppercase tracking-[1.3px] text-red">Women&apos;s Pulse</Text>
-                <Text className="font-headline text-[18px] leading-6 text-ink" numberOfLines={1}>{pulseMetric?.label ?? "See what is moving"}</Text>
-              </View>
-              {pulseMetric ? (
-                <View className="ml-3 items-end">
-                  <Text className="font-headline text-[23px] leading-7 text-ink">{pulseMetric.value.toLocaleString("en-IN")}</Text>
-                  <Text className="font-body text-[10px] text-muted" numberOfLines={1}>{pulseMetric.unit}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-
-            <Pressable onPress={() => setCheckInOpen(true)} accessibilityRole="button" className="mt-3 min-h-[82px] flex-row items-center overflow-hidden rounded-[22px] bg-ink px-4 py-3" style={({ pressed }) => ({ opacity: pressed ? 0.82 : 1 })}>
-              <LinearGradient pointerEvents="none" colors={[colors.plum, colors.ink]} className="absolute inset-0 opacity-60" />
-              <View className="h-11 w-11 items-center justify-center rounded-[15px] bg-surface/10"><SparkIcon size={22} color={colors.peach} /></View>
-              <View className="ml-3 min-w-0 flex-1">
-                <Text className="font-label text-[11px] uppercase tracking-[1.3px] text-peach">Shhh... / private</Text>
-                <Text className="font-headline text-[19px] leading-6 text-surface">How heavy is today?</Text>
-              </View>
-              <Text className="font-label text-[12px] text-lilac">Open</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-
-        <PrivateCheckInSheet open={checkInOpen} onClose={() => setCheckInOpen(false)} onChooseSofter={chooseSofterMix} />
-      </View>
-    </SwipeableTabScreen>
-  );
-}
-
-function PrivateCheckInSheet({ open, onClose, onChooseSofter }: { open: boolean; onClose: () => void; onChooseSofter: () => void }) {
-  const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
-  const [pressure, setPressure] = useState(0);
-  const [isPressing, setIsPressing] = useState(false);
-  const [hasCheckedIn, setHasCheckedIn] = useState(false);
-  const pressing = useRef(false);
-  const startedAt = useRef(0);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
-
-  useEffect(() => {
-    if (open) return;
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
-    pressing.current = false;
-    setIsPressing(false);
-  }, [open]);
-
-  function startPress() {
-    if (timer.current) clearInterval(timer.current);
-    startedAt.current = Date.now();
-    setPressure(0);
-    setHasCheckedIn(false);
-    pressing.current = true;
-    setIsPressing(true);
-    timer.current = setInterval(() => {
-      const next = pressureFromDuration(Date.now() - startedAt.current);
-      setPressure(next);
-      if (next === 1 && timer.current) {
-        clearInterval(timer.current);
-        timer.current = null;
-      }
-    }, 40);
-  }
-
-  function finishPress() {
-    if (!pressing.current) return;
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
-    setPressure(pressureFromDuration(Date.now() - startedAt.current));
-    pressing.current = false;
-    setIsPressing(false);
-    setHasCheckedIn(true);
-    Vibration.vibrate(18);
-  }
-
-  const percentage = Math.round(pressure * 100);
-  const feedback = getCheckInFeedback(pressure);
-  const progressColor = pressure < 0.34 ? colors.plum : pressure < 0.68 ? colors.red : colors.lime;
-  const sheetHeight = Math.min(590, Math.max(500, height * 0.7));
-
-  return (
-    <Modal visible={open} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: "flex-end" }}>
-        <Pressable accessibilityLabel="Close private check-in" onPress={onClose} className="absolute inset-0 bg-ink/60" />
-        <Animated.View
-          entering={SlideInDown.springify().damping(19).stiffness(150)}
-          exiting={SlideOutDown.duration(240)}
-          style={{ height: sheetHeight, overflow: "hidden", borderTopLeftRadius: 36, borderTopRightRadius: 36, backgroundColor: colors.surface, paddingHorizontal: 18, paddingTop: 16, paddingBottom: insets.bottom + 18 }}
-        >
-          <View className="mb-3 h-1 w-10 self-center rounded-full bg-hairline" />
-          <View className="flex-row items-start justify-between">
-            <View className="min-w-0 flex-1 pr-3">
-              <Text className="font-label text-[11px] uppercase tracking-[1.6px] text-red">Private on this device</Text>
-              <Text className="mt-1 font-headline text-[29px] leading-[36px] text-ink">How heavy is today?</Text>
-            </View>
-            <Pressable onPress={onClose} className="h-11 min-w-11 items-center justify-center px-2" accessibilityRole="button"><Text className="font-label text-[12px] text-muted">Close</Text></Pressable>
-          </View>
-
-          <Pressable
-            accessibilityRole="adjustable"
-            accessibilityLabel="Touch to describe how heavy today feels"
-            accessibilityHint="Keep touching as the colour deepens, then release"
-            accessibilityValue={{ min: 0, max: 100, now: percentage }}
-            onPressIn={startPress}
-            onPressOut={finishPress}
-            className="mt-4 h-48 overflow-hidden rounded-[26px]"
-          >
-            <LinearGradient colors={[colors.sky, colors.lilac]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
-            <Animated.View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: pressure }}><LinearGradient colors={[colors.peach, colors.plum]} style={{ flex: 1 }} /></Animated.View>
-            <Animated.View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: Math.max(0, (pressure - 0.55) / 0.45) }}><LinearGradient colors={[colors.red, colors.ink]} style={{ flex: 1 }} /></Animated.View>
-            <View className="flex-1 justify-between p-5">
-              <Text className="font-label text-[11px] uppercase tracking-[1.4px] text-ink/70">{isPressing ? "Let the colour deepen" : "Touch the colour"}</Text>
-              <Text className="font-headline text-[54px] leading-[62px] tabular-nums" style={{ color: pressure > 0.62 ? colors.surface : colors.ink }}>{percentage}%</Text>
-            </View>
-          </Pressable>
-
-          <View className="mt-4 h-1.5 overflow-hidden rounded-full bg-hairline"><View className="h-full rounded-full" style={{ width: `${Math.max(percentage, 2)}%`, backgroundColor: progressColor }} /></View>
-          <View className="mt-2 flex-row justify-between">
-            <Text className="font-label text-[11px] uppercase tracking-[1.2px] text-muted">Light</Text>
-            <Text className="font-label text-[11px] uppercase tracking-[1.2px] text-muted">Heavy</Text>
-          </View>
-
-          <View className="mt-4 min-h-[92px] justify-center border-t border-hairline pt-3">
-            {hasCheckedIn ? (
-              <Animated.View entering={FadeInDown.duration(260)}>
-                <Text className="font-headline text-[20px] leading-7 text-ink">{feedback.label}</Text>
-                <Text className="font-body text-[13px] leading-[18px] text-muted">{feedback.message}</Text>
-                <Pressable onPress={feedback.band === "light" ? onClose : onChooseSofter} className="mt-3 min-h-11 items-center justify-center rounded-full bg-ink px-5" accessibilityRole="button">
-                  <Text className="font-label text-[12px] text-surface">{feedback.band === "light" ? "Keep this pace" : "Show me something hopeful"}</Text>
+                  <ChevronLeftIcon color={e.ink} size={21} />
                 </Pressable>
-              </Animated.View>
-            ) : (
-              <Text className="font-body text-[13px] text-muted">Nothing is saved or shared.</Text>
-            )}
+                <Pressable
+                  onPress={() => jump(storyIndex + 1)}
+                  disabled={storyIndex === ordered.length - 1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Next story"
+                  style={[
+                    s.smallButton,
+                    { opacity: storyIndex === ordered.length - 1 ? 0.3 : 1 },
+                  ]}
+                >
+                  <Symbol name="arrow" size={20} />
+                </Pressable>
+              </View>
+            </View>
+          </>
+        )}
+        <View style={s.section}>
+          <Text style={type.label}>
+            Make it yours · {selected.length} followed
+          </Text>
+          <Text style={[type.title, { fontSize: 30, marginTop: 5 }]}>
+            Keep your interests close.
+          </Text>
+          <Text style={[type.body, { fontSize: 14 }]}>
+            Tap a topic to explore. Tap + to keep it.
+          </Text>
+          <View style={s.topicGrid}>
+            {(showAll ? topics : topics.slice(0, 4)).map((topic, index) => (
+              <View
+                key={topic.id}
+                style={[
+                  s.topic,
+                  {
+                    backgroundColor: canvases[index % 4],
+                    borderColor:
+                      topicFilter === topic.slug ? e.ink : "transparent",
+                  },
+                ]}
+              >
+                <Pressable
+                  onPress={() => {
+                    setTopicFilter(
+                      topicFilter === topic.slug ? null : topic.slug,
+                    );
+                    page.current?.scrollTo({ y: 0, animated: true });
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: topicFilter === topic.slug }}
+                  aria-pressed={topicFilter === topic.slug}
+                  accessibilityLabel={`Explore ${topic.title}`}
+                  style={{ flex: 1, padding: 16, paddingBottom: 56 }}
+                >
+                  <Text style={type.label}>
+                    {String(index + 1).padStart(2, "0")}
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: fontFamily.headline,
+                      fontSize: 21,
+                      lineHeight: 25,
+                      color: e.ink,
+                      marginTop: 16,
+                    }}
+                  >
+                    {topic.title}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    toggle(topic.slug);
+                    trackEvent(
+                      selected.includes(topic.slug)
+                        ? "genre_unfollow"
+                        : "genre_follow",
+                      { topicSlug: topic.slug },
+                    );
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${selected.includes(topic.slug) ? "Unfollow" : "Follow"} ${topic.title}`}
+                  style={[
+                    s.smallButton,
+                    {
+                      position: "absolute",
+                      bottom: 8,
+                      right: 10,
+                      borderRadius: 24,
+                      backgroundColor: "#FFFFFF88",
+                    },
+                  ]}
+                >
+                  {selected.includes(topic.slug) ? (
+                    <CheckIcon color={e.ink} size={18} />
+                  ) : (
+                    <Text style={[type.button, { fontSize: 25 }]}>+</Text>
+                  )}
+                </Pressable>
+              </View>
+            ))}
           </View>
-        </Animated.View>
-      </View>
-    </Modal>
+          {topicFilter && (
+            <Pressable onPress={() => setTopicFilter(null)} style={s.chip}>
+              <Text style={type.button}>Clear topic filter</Text>
+            </Pressable>
+          )}
+          {topics.length > 4 && (
+            <Pressable
+              onPress={() => setShowAll(!showAll)}
+              accessibilityRole="button"
+              style={{ padding: 14, alignItems: "center" }}
+            >
+              <Text style={type.button}>
+                {showAll ? "Fewer topics" : "Explore all topics"}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+        <Pressable
+          onPress={() => router.push("/pulse")}
+          accessibilityRole="button"
+          style={s.pulse}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text style={[type.label, { color: e.ink }]}>Women’s Pulse</Text>
+            <PulseIcon color={e.ink} size={25} />
+          </View>
+          <Text style={[type.title, { marginTop: 20, fontSize: 32 }]}>
+            The world is moving.{`\n`}So are we.
+          </Text>
+          <Text style={[type.body, { marginTop: 10, color: e.ink }]}>
+            {metric
+              ? `${metric.value.toLocaleString("en-IN")} ${metric.unit} · ${metric.label}`
+              : "Real numbers. Women’s lives. See the bigger picture."}
+          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              marginTop: 20,
+            }}
+          >
+            <Text style={type.button}>Take a closer look</Text>
+            <Symbol name="arrow" />
+          </View>
+        </Pressable>
+      </ScrollView>
+    </View>
   );
 }
+const s = StyleSheet.create({
+  intro: { paddingHorizontal: 22 },
+  search: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingLeft: 14,
+    borderWidth: 1,
+    borderColor: e.line,
+    borderRadius: 18,
+    backgroundColor: e.white,
+    marginTop: 10,
+  },
+  chip: {
+    minHeight: 44,
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: e.line,
+    marginTop: 0,
+  },
+  story: { borderRadius: 30, overflow: "hidden" },
+  metricOnPhoto: {
+    position: "absolute",
+    inset: 0,
+    justifyContent: "flex-end",
+    padding: 24,
+  },
+  save: {
+    position: "absolute",
+    right: 14,
+    top: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 24,
+    backgroundColor: e.white,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  read: {
+    marginTop: 16,
+    padding: 5,
+    paddingLeft: 18,
+    backgroundColor: e.white,
+    borderRadius: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  readArrow: {
+    width: 38,
+    height: 38,
+    borderRadius: 20,
+    backgroundColor: e.ink,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  smallButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  railControls: {
+    marginHorizontal: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+  },
+  section: { paddingHorizontal: 22, paddingVertical: 24 },
+  topicGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 18 },
+  topic: {
+    width: "48%",
+    flexGrow: 1,
+    minHeight: 176,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    overflow: "hidden",
+  },
+  pulse: {
+    marginHorizontal: 22,
+    padding: 24,
+    backgroundColor: e.blue,
+    borderRadius: 26,
+    marginTop: 6,
+  },
+});

@@ -89,7 +89,7 @@ export default function RootLayout() {
             >
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="onboarding" options={{ presentation: "modal", gestureEnabled: false }} />
-              <Stack.Screen name="card/[slug]" options={{ presentation: "modal" }} />
+              <Stack.Screen name="card/[slug]" options={{ presentation: "card", animation: "slide_from_right" }} />
               <Stack.Screen name="pulse" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
               <Stack.Screen name="shh" options={{ presentation: "fullScreenModal", animation: "fade" }} />
             </Stack>

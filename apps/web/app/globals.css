@@ -7,21 +7,26 @@
  * raw.js's header comment for the full explanation.
  */
 @theme {
-  --color-bg: #110d0f;
-  --color-maroon: #7f222d;
-  --color-red: #c83d4b;
-  --color-plum: #633f59;
-  --color-jade: #5e8c82;
-  --color-gold: #c9975a;
-  --color-ink: #f2efe9;
-  --color-muted: #b5a8a4;
-  --color-surface: #1a1316;
-  --color-surface2: #241a20;
-  --color-scrim: rgba(17, 13, 15, 0.92);
-  --color-hairline: rgba(242, 239, 233, 0.1);
-  --color-pressed: rgba(242, 239, 233, 0.06);
+  --color-bg: #faf8f4;
+  --color-maroon: #741f19;
+  --color-red: #aa381e;
+  --color-plum: #826d78;
+  --color-jade: #6d8177;
+  --color-lilac: #d8cae5;
+  --color-sky: #bfd0e3;
+  --color-lime: #dce999;
+  --color-peach: #ebc3ac;
+  --color-sage: #bac9bc;
+  --color-gold: #aa381e;
+  --color-ink: #111210;
+  --color-muted: #666b65;
+  --color-surface: #ffffff;
+  --color-surface2: #eceee8;
+  --color-scrim: rgba(17, 18, 16, 0.78);
+  --color-hairline: rgba(17, 18, 16, 0.1);
+  --color-pressed: rgba(170, 56, 30, 0.08);
 
-  --font-headline: var(--font-anek-devanagari);
+  --font-headline: Georgia, var(--font-anek-devanagari), serif;
   --font-body: var(--font-mukta);
 
   /*

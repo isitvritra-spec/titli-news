@@ -1,25 +1,15 @@
-import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  Extrapolation,
-  FadeInDown,
-  interpolate,
-  runOnJS,
-  type SharedValue,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
 import { isDataCard, type HotStory } from "@repo/api-client";
-import { colors } from "@repo/tokens";
-
-import { ButterflyMark } from "./icons";
+import { fontFamily } from "@repo/tokens";
 import { selectBalancedHotStories } from "../lib/contentBalance";
+import { Symbol } from "./ui/Symbol";
+import { editorial as e, type } from "./ui/theme";
 
-const canvases = [colors.sky, colors.peach, colors.lilac, colors.lime, colors.sage];
+const canvases = [e.lime, e.peach, e.lilac, e.blue];
 export function MoreNews({
   stories,
   width,
@@ -32,254 +22,243 @@ export function MoreNews({
   bottomInset: number;
 }) {
   const router = useRouter();
-  const visibleStories = selectBalancedHotStories(stories, 5);
-  const cardWidth = Math.min(292, width * 0.75);
-  const slotWidth = cardWidth * 0.74;
-  const usableHeight = height - bottomInset;
-  const cardHeight = Math.min(304, Math.max(250, usableHeight * 0.46));
-  const [activeIndex, setActiveIndex] = useState(0);
-  const scrollX = useSharedValue(0);
-  const dragOrigin = useSharedValue(0);
-  const maxOffset = Math.max(visibleStories.length - 1, 0) * slotWidth;
-  const deckGesture = Gesture.Pan()
-    .activeOffsetX([-14, 14])
-    .failOffsetY([-14, 14])
-    .onBegin(() => {
-      dragOrigin.value = scrollX.value;
-    })
-    .onUpdate((event) => {
-      scrollX.value = Math.min(Math.max(dragOrigin.value - event.translationX, 0), maxOffset);
-    })
-    .onEnd(() => {
-      const next = Math.min(Math.max(Math.round(scrollX.value / slotWidth), 0), visibleStories.length - 1);
-      scrollX.value = withTiming(next * slotWidth, { duration: 260 });
-      runOnJS(setActiveIndex)(next);
-    });
-  const railStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -scrollX.value }],
-  }));
-
+  const visible = selectBalancedHotStories(stories, 5);
+  const [index, setIndex] = useState(0);
+  const rail = useRef<ScrollView>(null);
+  const cardWidth = Math.min(width - 68, 380);
+  const cardHeight = Math.max(370, Math.min(height - bottomInset - 170, 485));
   return (
-    <View style={{ width, height, paddingBottom: bottomInset, backgroundColor: colors.surface }}>
-      <View className="flex-1 overflow-hidden bg-surface pb-4 pt-5">
-        <Animated.View entering={FadeInDown.duration(380)} className="px-5">
-          <View className="flex-row items-center justify-between">
-            <Text className="font-label text-[11px] uppercase tracking-[1.6px] text-red">
-              Beyond today&apos;s seven
-            </Text>
-            <ButterflyMark size={23} color={colors.red} />
-          </View>
-          <Text className="mt-1 font-headline text-[32px] leading-[42px] text-ink">
-            Worth staying for.
+    <View style={{ width, height, backgroundColor: e.paper }}>
+      <ScrollView
+        nestedScrollEnabled
+        contentContainerStyle={{
+          paddingBottom: bottomInset + 20,
+          paddingTop: 20,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ paddingHorizontal: 24, marginBottom: 20 }}>
+          <Text style={type.label}>Beyond your seven</Text>
+          <Text style={[type.title, { marginTop: 6, fontSize: 34 }]}>
+            Curiosity looks good on you.
           </Text>
-          <Text className="max-w-[330px] font-body text-[14px] leading-5 text-muted" numberOfLines={2}>
-            Stories readers stayed with, not the ones with the loudest clicks.
-          </Text>
-        </Animated.View>
-
-        {visibleStories.length > 0 ? (
-          <View className="justify-start pt-5" style={{ height: cardHeight + 64 }}>
-            {visibleStories.length > 1 && activeIndex === 0 ? (
-              <SidePreviewCard
-                story={visibleStories[visibleStories.length - 1]!}
-                width={cardWidth}
-                height={cardHeight}
-              />
-            ) : null}
-            <GestureDetector gesture={deckGesture}>
-              <View style={{ width, height: cardHeight + 44, overflow: "hidden", zIndex: 2 }}>
-                <Animated.View style={[{ width: width + maxOffset, height: cardHeight + 40 }, railStyle]}>
-                  {visibleStories.map((item, index) => (
-                    <StoryDeckCard
-                      key={`${item.card.id}-${index}`}
-                      story={item}
-                      index={index}
-                      displayIndex={index}
-                      scrollX={scrollX}
-                      slotWidth={slotWidth}
-                      deckWidth={width}
-                      width={cardWidth}
-                      height={cardHeight}
-                      isActive={index === activeIndex}
-                      onPress={() => router.push(`/card/${item.card.slug}`)}
+        </View>
+        {visible.length ? (
+          <>
+            <ScrollView
+              ref={rail}
+              horizontal
+              snapToInterval={cardWidth + 14}
+              decelerationRate="fast"
+              disableIntervalMomentum
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(event) =>
+                setIndex(
+                  Math.max(
+                    0,
+                    Math.min(
+                      visible.length - 1,
+                      Math.round(
+                        event.nativeEvent.contentOffset.x / (cardWidth + 14),
+                      ),
+                    ),
+                  ),
+                )
+              }
+              contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+            >
+              {visible.map(({ card, reason }, i) => (
+                <View
+                  key={card.id}
+                  style={{
+                    width: cardWidth,
+                    minHeight: cardHeight,
+                    borderRadius: 26,
+                    padding: 20,
+                    backgroundColor: canvases[i % 4],
+                    overflow: "hidden",
+                  }}
+                >
+                  <Text
+                    style={[
+                      type.label,
+                      { textAlign: "center", color: e.ink, fontSize: 10 },
+                    ]}
+                  >
+                    {reason} · {String(i + 1).padStart(2, "0")}
+                  </Text>
+                  <Text
+                    numberOfLines={4}
+                    style={{
+                      fontFamily: fontFamily.headline,
+                      fontSize: 26,
+                      lineHeight: 31,
+                      color: e.ink,
+                      textAlign: "center",
+                      marginTop: 12,
+                    }}
+                  >
+                    {card.headline}
+                  </Text>
+                  <View style={s.photo}>
+                    <Image
+                      source={{ uri: card.image.url }}
+                      placeholder={{ uri: card.image.blurDataURL }}
+                      accessibilityLabel={card.image.alt}
+                      contentFit="cover"
+                      style={StyleSheet.absoluteFill}
                     />
-                  ))}
-                </Animated.View>
+                    <LinearGradient
+                      colors={["#11121008", "#111210D9"]}
+                      locations={[0.12, 1]}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    {isDataCard(card) && card.metric ? (
+                      <View style={s.metric}>
+                      <Text
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        style={{
+                          fontFamily: fontFamily.headline,
+                          fontSize: Math.min(
+                            76,
+                            ((cardWidth - 40) * 1.5) /
+                              `${card.metric.value}${card.metric.unit}`.length,
+                          ),
+                          lineHeight: 100,
+                          color: e.white,
+                        }}
+                      >
+                        {card.metric.value}
+                        {card.metric.unit}
+                      </Text>
+                      <Text
+                        style={[
+                          type.body,
+                          { fontSize: 12, textAlign: "center", color: e.white },
+                        ]}
+                      >
+                        {card.surveySource.name}
+                      </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    onPress={() => router.push(`/card/${card.slug}`)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Read ${card.headline}`}
+                    style={({ pressed }) => [
+                      s.read,
+                      { opacity: pressed ? 0.7 : 1 },
+                    ]}
+                  >
+                    <Text style={[type.button, { color: e.paper }]}>
+                      A little more perspective
+                    </Text>
+                    <Symbol name="arrow" color={e.paper} size={19} />
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+            <View style={s.controls}>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                {visible.map((item, i) => (
+                  <Pressable
+                    key={item.card.id}
+                    onPress={() => {
+                      setIndex(i);
+                      rail.current?.scrollTo({
+                        x: i * (cardWidth + 14),
+                        animated: true,
+                      });
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Story ${i + 1}`}
+                    accessibilityState={{ selected: i === index }}
+                    aria-pressed={i === index}
+                    style={{
+                      width: 30,
+                      height: 44,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: i === index ? 22 : 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: i === index ? e.ink : e.line,
+                      }}
+                    />
+                  </Pressable>
+                ))}
               </View>
-            </GestureDetector>
-          </View>
+              <Text style={type.label}>
+                {index + 1} / {visible.length}
+              </Text>
+            </View>
+          </>
         ) : (
-          <View className="mx-5 my-5 flex-1 items-center justify-center rounded-[28px] bg-sky px-7">
-            <Text className="text-center font-headline text-[24px] leading-[30px] text-ink">
-              The reading room is warming up.
+          <View
+            style={{
+              marginHorizontal: 24,
+              padding: 28,
+              backgroundColor: e.lilac,
+              borderRadius: 26,
+            }}
+          >
+            <Symbol name="leaf" size={32} />
+            <Text style={[type.title, { marginTop: 20, fontSize: 30 }]}>
+              Room for something new.
             </Text>
-            <Text className="mt-2 text-center font-body text-[14px] leading-5 text-muted">
-              More carefully selected stories will appear as readers spend time with them.
+            <Text style={[type.body, { marginTop: 10 }]}>
+              More stories are on their way. Until then, explore a topic you
+              care about.
             </Text>
           </View>
         )}
-
         <Pressable
           onPress={() => router.push("/(tabs)/topics")}
-          className="mx-5 min-h-11 items-center justify-center rounded-full bg-red px-5"
+          accessibilityRole="button"
+          style={{ padding: 16, alignItems: "center" }}
         >
-          <Text className="font-label text-[12px] text-surface">Explore what matters to you</Text>
+          <Text style={type.button}>Explore your own direction →</Text>
         </Pressable>
-      </View>
+      </ScrollView>
     </View>
   );
 }
-
-function SidePreviewCard({ story, width, height }: { story: HotStory; width: number; height: number }) {
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: "absolute",
-        left: -width * 0.62,
-        top: "50%",
-        width,
-        height,
-        marginTop: -height / 2,
-        borderRadius: 28,
-        overflow: "hidden",
-        opacity: 0.68,
-        transform: [{ translateY: 18 }, { scale: 0.84 }, { rotate: "-5deg" }],
-        zIndex: 1,
-      }}
-    >
-      <LinearGradient colors={[colors.peach, colors.surface]} style={{ flex: 1, padding: 20 }}>
-        <Text className="font-label text-[11px] uppercase tracking-[1.2px] text-ink" numberOfLines={1}>
-          {story.reason}
-        </Text>
-        <Text className="mt-5 font-headline text-[22px] leading-[28px] text-ink" numberOfLines={2}>
-          {story.card.headline}
-        </Text>
-      </LinearGradient>
-    </View>
-  );
-}
-
-function StoryDeckCard({
-  story,
-  index,
-  displayIndex,
-  scrollX,
-  slotWidth,
-  deckWidth,
-  width,
-  height,
-  isActive,
-  onPress,
-}: {
-  story: HotStory;
-  index: number;
-  displayIndex: number;
-  scrollX: SharedValue<number>;
-  slotWidth: number;
-  deckWidth: number;
-  width: number;
-  height: number;
-  isActive: boolean;
-  onPress: () => void;
-}) {
-  const card = story.card;
-  const isData = isDataCard(card);
-  const canvas = canvases[displayIndex % canvases.length];
-  const animatedStyle = useAnimatedStyle(() => {
-    const center = index * slotWidth;
-    const input = [center - slotWidth, center, center + slotWidth];
-    const distance = Math.min(Math.abs(scrollX.value - center) / slotWidth, 1);
-
-    return {
-      zIndex: Math.round(20 - distance * 10),
-      opacity: interpolate(scrollX.value, input, [0.7, 1, 0.7], Extrapolation.CLAMP),
-      transform: [
-        { perspective: 900 },
-        {
-          translateX: interpolate(
-            scrollX.value,
-            input,
-            [width * 0.1, 0, width * -0.1],
-            Extrapolation.CLAMP,
-          ),
-        },
-        { translateY: interpolate(scrollX.value, input, [18, 0, 18], Extrapolation.CLAMP) },
-        { scale: interpolate(scrollX.value, input, [0.84, 1, 0.84], Extrapolation.CLAMP) },
-        {
-          rotateY: `${interpolate(scrollX.value, input, [12, 0, -12], Extrapolation.CLAMP)}deg`,
-        },
-      ],
-    };
-  });
-
-  return (
-    <View
-      style={{
-        width: slotWidth,
-        height: height + 40,
-        position: "absolute",
-        left: (deckWidth - slotWidth) / 2 + index * slotWidth,
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: isActive ? 30 : 1,
-      }}
-    >
-      <Animated.View
-        style={[
-          {
-            width,
-            height,
-            borderRadius: 28,
-            overflow: "hidden",
-            shadowColor: colors.ink,
-            shadowOpacity: 0.16,
-            shadowRadius: 20,
-            shadowOffset: { width: 0, height: 12 },
-            elevation: 8,
-          },
-          animatedStyle,
-        ]}
-      >
-        <LinearGradient
-          colors={[canvas, colors.surface]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          className="p-5"
-          style={{ flex: 1 }}
-        >
-            <View className="flex-row items-start justify-between">
-              <Text className="font-label text-[11px] uppercase tracking-[1.2px] text-ink" numberOfLines={1}>
-                {story.reason}
-              </Text>
-              {isData && card.metric ? (
-                <Text className="ml-2 font-headline text-[20px] leading-6 text-ink">
-                  {card.metric.value}{card.metric.unit}
-                </Text>
-              ) : (
-                <Text className="ml-2 font-label text-[11px] tabular-nums text-muted">0{displayIndex + 1}</Text>
-              )}
-            </View>
-            <Text className="mt-4 font-headline text-[21px] leading-[26px] text-ink" numberOfLines={3}>
-              {card.headline}
-            </Text>
-            <Text className="mt-2 font-body text-[13px] leading-[18px] text-muted" numberOfLines={3}>
-              {card.body}
-            </Text>
-            <View className="mt-auto flex-row items-center justify-between border-t border-hairline pt-2">
-              <Text className="font-label text-[11px] text-ink">
-                {story.averageDwellSeconds > 0 ? `${story.averageDwellSeconds}s read` : "Fresh from Titli"}
-              </Text>
-              <Pressable
-                onPress={onPress}
-                className="min-h-11 min-w-11 items-center justify-center rounded-full bg-ink px-3"
-                aria-label={`Open ${card.headline}`}
-              >
-                <Text className="font-label text-[11px] text-surface">Open</Text>
-              </Pressable>
-            </View>
-        </LinearGradient>
-      </Animated.View>
-    </View>
-  );
-}
+const s = StyleSheet.create({
+  photo: {
+    height: 180,
+    borderRadius: 17,
+    marginVertical: 20,
+    overflow: "hidden",
+  },
+  metric: {
+    position: "absolute",
+    inset: 0,
+    justifyContent: "flex-end",
+    alignItems: "flex-start",
+    padding: 18,
+  },
+  read: {
+    marginTop: "auto",
+    minHeight: 54,
+    backgroundColor: e.ink,
+    borderRadius: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    paddingHorizontal: 16,
+  },
+  controls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginHorizontal: 24,
+    marginTop: 10,
+  },
+});

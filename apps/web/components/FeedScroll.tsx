@@ -32,10 +32,10 @@ export function FeedScroll({ cards }: { cards: Card[] }) {
   return (
     <div
       ref={containerRef}
-      className="h-dvh w-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain"
+      className="h-dvh w-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain bg-bg"
     >
-      {cards.map((card) => (
-        <ReadingCard key={card.id} card={card} />
+      {cards.map((card, index) => (
+        <ReadingCard key={card.id} card={card} index={index} />
       ))}
     </div>
   );
