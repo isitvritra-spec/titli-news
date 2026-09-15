@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "./client";
 import { feedCandidates, sources } from "./schema";
 import { fetchAllCandidates, getSourceProfile, type FeedCandidateInput } from "../rss";
@@ -37,22 +37,34 @@ export async function refreshInbox(): Promise<number> {
   return toInsert.length;
 }
 
-/** Only items neither dismissed nor already turned into a published card — this is a to-do list, not an archive. */
+/**
+ * Items still awaiting a decision — a to-do list, not an archive. Ranked by
+ * relevance now that the morning pass scores them; auto_rejected, dismissed,
+ * and drafted items drop out. (`status` supersedes the legacy dismissed /
+ * draftedCardId filter.)
+ */
 export async function listInboxCandidates() {
   return db
     .select()
     .from(feedCandidates)
-    .where(and(eq(feedCandidates.dismissed, false), isNull(feedCandidates.draftedCardId)))
-    .orderBy(desc(feedCandidates.pubDate), desc(feedCandidates.fetchedAt));
+    .where(inArray(feedCandidates.status, ["new", "shortlisted"]))
+    .orderBy(desc(feedCandidates.relevanceScore), desc(feedCandidates.pubDate), desc(feedCandidates.fetchedAt));
 }
 
 export async function dismissCandidate(id: string): Promise<void> {
-  await db.update(feedCandidates).set({ dismissed: true }).where(eq(feedCandidates.id, id));
+  // Keep the legacy `dismissed` flag in sync so anything still reading it agrees.
+  await db
+    .update(feedCandidates)
+    .set({ status: "dismissed", dismissed: true })
+    .where(eq(feedCandidates.id, id));
 }
 
 /** Called once the card that started from this candidate is actually published — see app/api/admin/cards/route.ts. */
 export async function markCandidateDrafted(candidateId: string, cardId: string): Promise<void> {
-  await db.update(feedCandidates).set({ draftedCardId: cardId }).where(eq(feedCandidates.id, candidateId));
+  await db
+    .update(feedCandidates)
+    .set({ draftedCardId: cardId, status: "drafted" })
+    .where(eq(feedCandidates.id, candidateId));
 }
 
 /** Finds the `source` row for a candidate, creating it on first sight so the new-card form has something to select. */

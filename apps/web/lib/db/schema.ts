@@ -202,7 +202,31 @@ export const cardStateBreakdown = sqliteTable("card_state_breakdown", {
  * lib/rss.ts's header comment for why this stays an inbox, not an
  * auto-publish pipeline).
  */
-export const feedCandidates = sqliteTable("feed_candidates", {
+/**
+ * A group of feed candidates that all cover the same underlying story, so the
+ * editor triages one story rather than the same event six times. Built by the
+ * deterministic pass in lib/clustering.ts during the morning refresh; the
+ * canonical item is the most authoritative outlet in the group.
+ */
+export const storyClusters = sqliteTable("story_clusters", {
+  id: id(),
+  canonicalTitle: text("canonical_title").notNull(),
+  /** The representative candidate (highest trust tier). Plain text, not a FK, to avoid a cycle with feed_candidates.cluster_id. */
+  canonicalCandidateId: text("canonical_candidate_id"),
+  topicGuess: text("topic_guess"),
+  relevanceScore: real("relevance_score"),
+  outletCount: integer("outlet_count").notNull().default(1),
+  status: text("status", { enum: ["new", "shortlisted", "dismissed"] })
+    .notNull()
+    .default("new"),
+  firstSeenAt: text("first_seen_at").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`(current_timestamp)`),
+  ...timestamps,
+});
+
+export const feedCandidates = sqliteTable(
+  "feed_candidates",
+  {
   id: id(),
   sourceName: text("source_name").notNull(),
   sourceSiteUrl: text("source_site_url").notNull(),
@@ -211,6 +235,20 @@ export const feedCandidates = sqliteTable("feed_candidates", {
   imageUrl: text("image_url"),
   pubDate: text("pub_date"),
   fetchedAt: text("fetched_at").notNull().default(sql`(current_timestamp)`),
+
+  /**
+   * Triage state. Supersedes the legacy `dismissed` / `draftedCardId` pair for
+   * filtering (those two columns are kept in sync so nothing that still reads
+   * them breaks). "auto_rejected" is set by the relevance prefilter.
+   */
+  status: text("status", {
+    enum: ["new", "shortlisted", "drafted", "dismissed", "auto_rejected"],
+  })
+    .notNull()
+    .default("new"),
+  clusterId: text("cluster_id").references(() => storyClusters.id, { onDelete: "set null" }),
+  relevanceScore: real("relevance_score"),
+
   dismissed: integer("dismissed", { mode: "boolean" }).notNull().default(false),
 
   // Populated on-demand when the editor clicks "Draft from this" — the
@@ -228,7 +266,12 @@ export const feedCandidates = sqliteTable("feed_candidates", {
   draftImageCredit: text("draft_image_credit"),
 
   draftedCardId: text("drafted_card_id").references(() => cards.id, { onDelete: "set null" }),
-});
+  },
+  (table) => [
+    index("feed_candidates_status_idx").on(table.status),
+    index("feed_candidates_cluster_idx").on(table.clusterId),
+  ]
+);
 
 export const pulseMetrics = sqliteTable("pulse_metrics", {
   key: text("key").primaryKey(),
