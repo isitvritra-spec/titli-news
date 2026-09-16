@@ -121,6 +121,13 @@ export const cards = sqliteTable("cards", {
   correctedAt: text("corrected_at"),
   deepDiveBody: text("deep_dive_body"),
 
+  /** True when the draft was machine-written; gates publishing until an editor confirms review. */
+  aiGenerated: integer("ai_generated", { mode: "boolean" }).notNull().default(false),
+  aiReviewed: integer("ai_reviewed", { mode: "boolean" }).notNull().default(false),
+  /** Longest verbatim word-run shared with the source at draft time, and the offending fragments (JSON). Never the article itself. */
+  originalityMaxRun: integer("originality_max_run"),
+  originalitySpans: text("originality_spans"),
+
   // News-only
   sourceId: text("source_id").references(() => sources.id),
   sourceDate: text("source_date"),

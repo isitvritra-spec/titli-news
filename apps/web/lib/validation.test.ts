@@ -63,6 +63,63 @@ test("an unrecorded image origin still saves as a draft", () => {
   assert.equal(draft.success, true);
 });
 
+test("an AI draft cannot be published until the editor confirms review", () => {
+  const unconfirmed = cardInputSchema.safeParse({
+    ...newsCard,
+    aiGenerated: true,
+    aiReviewed: false,
+    deepDiveBody: words(120),
+  });
+  assert.equal(unconfirmed.success, false);
+  if (!unconfirmed.success) {
+    assert.equal(unconfirmed.error.issues.some((i) => i.path[0] === "aiReviewed"), true);
+  }
+
+  const confirmed = cardInputSchema.safeParse({
+    ...newsCard,
+    aiGenerated: true,
+    aiReviewed: true,
+    deepDiveBody: words(120),
+  });
+  assert.equal(confirmed.success, true);
+});
+
+test("publishing is blocked when the headline still matches the source verbatim", () => {
+  const copied = cardInputSchema.safeParse({
+    ...newsCard,
+    headline: "Ministry reports one crore women past the benchmark",
+    sourceHeadline: "Ministry reports one crore women past the benchmark",
+    deepDiveBody: words(120),
+  });
+  assert.equal(copied.success, false);
+  if (!copied.success) {
+    assert.equal(copied.error.issues.some((i) => i.path[0] === "headline"), true);
+  }
+});
+
+test("publishing is blocked while the body still contains a copied run", () => {
+  const spans = ["more than one crore women in self help group households"];
+  const pad = words(35);
+  const blocked = cardInputSchema.safeParse({
+    ...newsCard,
+    body: `Reportedly more than one crore women in self-help group households now earn more. ${pad}`,
+    originalitySpans: spans,
+    deepDiveBody: words(120),
+  });
+  assert.equal(blocked.success, false);
+  if (!blocked.success) {
+    assert.equal(blocked.error.issues.some((i) => i.path[0] === "body"), true);
+  }
+
+  const rewritten = cardInputSchema.safeParse({
+    ...newsCard,
+    body: `Government data points to over ten million rural women earning above the income line. ${pad}`,
+    originalitySpans: spans,
+    deepDiveBody: words(120),
+  });
+  assert.equal(rewritten.success, true);
+});
+
 test("a re-hosted publisher image cannot be saved without its credit", () => {
   const uncredited = cardInputSchema.safeParse({
     ...newsCard,

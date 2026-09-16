@@ -34,6 +34,10 @@ export type CardFormInitialData = {
   primaryTopicId: string | null;
   sourceId: string | null;
   sourceDate: string | null;
+  aiGenerated: boolean;
+  aiReviewed: boolean;
+  originalityMaxRun: number | null;
+  originalitySpans: string[];
   metricValue: number | null;
   metricUnit: string | null;
   surveySourceId: string | null;
@@ -105,6 +109,11 @@ export function CardForm({
 
   const [sourceId, setSourceId] = useState(initialData?.sourceId ?? "");
   const [sourceDate, setSourceDate] = useState(initialData?.sourceDate ?? "");
+
+  const aiGenerated = initialData?.aiGenerated ?? false;
+  const originalityMaxRun = initialData?.originalityMaxRun ?? null;
+  const originalitySpans = initialData?.originalitySpans ?? [];
+  const [aiReviewed, setAiReviewed] = useState(initialData?.aiReviewed ?? false);
 
   const [metricValue, setMetricValue] = useState(initialData?.metricValue?.toString() ?? "");
   const [metricUnit, setMetricUnit] = useState(initialData?.metricUnit ?? "");
@@ -222,6 +231,10 @@ export function CardForm({
       imageLicence: imageLicence || undefined,
       imageSourceUrl: imageSourceUrl || undefined,
       sourceHeadline: initialData?.sourceHeadline || undefined,
+      aiGenerated,
+      aiReviewed,
+      originalityMaxRun: originalityMaxRun ?? undefined,
+      originalitySpans,
       publishedAt: new Date(publishedAt).toISOString(),
       isContested,
       contestedNote: isContested ? contestedNote : undefined,
@@ -281,6 +294,38 @@ export function CardForm({
       <h1 className="font-headline text-title text-ink mb-6">
         {mode === "create" ? "New card" : "Edit card"}
       </h1>
+
+      {aiGenerated ? (
+        <div className="mb-6 rounded-md border border-gold bg-surface p-4">
+          <p className="font-headline font-medium text-label text-gold">Machine-drafted — review before publishing</p>
+          <p className="mt-1 text-caption text-muted">
+            This draft was written by the model from the source. Verify every fact, rewrite it in
+            Titli&apos;s voice, and make the headline your own. It cannot be published until you confirm.
+          </p>
+          {originalitySpans.length > 0 ? (
+            <div className="mt-3 rounded border border-maroon bg-maroon/10 p-3">
+              <p className="text-caption font-medium text-ink">
+                The draft reused wording from the source ({originalityMaxRun ?? 0}-word run). Rewrite these
+                fragments — publishing is blocked while any remain:
+              </p>
+              <ul className="mt-2 list-disc pl-5 text-caption text-muted">
+                {originalitySpans.map((span) => (
+                  <li key={span}>“{span}”</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <label className="mt-3 flex items-start gap-2 text-caption text-ink">
+            <input
+              type="checkbox"
+              checked={aiReviewed}
+              onChange={(event) => setAiReviewed(event.target.checked)}
+              className="mt-0.5"
+            />
+            I have verified the facts and rewritten this draft in our own words.
+          </label>
+        </div>
+      ) : null}
 
       <Field label="Card type">
         <div className="flex gap-4">

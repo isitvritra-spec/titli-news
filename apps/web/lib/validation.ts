@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { countWords, WORD_COUNT_HARD_MAX, WORD_COUNT_HARD_MIN } from "@repo/utils";
+import {
+  ORIGINALITY_MIN_RUN,
+  normalizedHeadlinesMatch,
+  remainingSpans,
+} from "./originality";
 
 const readingSchema = z.object({ year: z.number().int(), value: z.number() });
 const stateBreakdownSchema = z.object({
@@ -44,6 +49,10 @@ export const cardInputSchema = z
     primaryTopicId: z.string().min(1, "Pick a primary genre"),
     sourceId: z.string().optional(),
     sourceDate: z.string().optional(),
+    aiGenerated: z.boolean().optional(),
+    aiReviewed: z.boolean().optional(),
+    originalityMaxRun: z.number().int().optional(),
+    originalitySpans: z.array(z.string()).optional(),
     metricValue: z.number().optional(),
     metricUnit: z.string().optional(),
     surveySourceId: z.string().optional(),
@@ -95,6 +104,38 @@ export const cardInputSchema = z
         message: "Set where this image came from before publishing",
         path: ["imageOrigin"],
       });
+    }
+
+    // Originality gates — only at publish, and enforced here (server-side) so
+    // the UI cannot be the only thing standing between a copy and readers.
+    if (data.status === "published") {
+      // A machine-written draft must be actively confirmed by an editor.
+      if (data.aiGenerated && !data.aiReviewed) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Confirm you have reviewed and rewritten this AI draft before publishing",
+          path: ["aiReviewed"],
+        });
+      }
+
+      // The headline must not be the source's headline verbatim.
+      if (data.sourceHeadline && normalizedHeadlinesMatch(data.headline, data.sourceHeadline)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Rewrite the headline in your own words — it still matches the source",
+          path: ["headline"],
+        });
+      }
+
+      // The body must not still contain a verbatim run of the source's wording.
+      const stillCopied = remainingSpans(data.body, data.originalitySpans ?? []);
+      if (stillCopied.length > 0) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Rewrite the copied wording — the body still shares a ${ORIGINALITY_MIN_RUN}+ word run with the source: “${stillCopied[0]}”`,
+          path: ["body"],
+        });
+      }
     }
 
     if (!data.topicIds.includes(data.primaryTopicId)) {

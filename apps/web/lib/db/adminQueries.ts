@@ -28,6 +28,10 @@ export type CardInput = {
   primaryTopicId: string;
   sourceId?: string;
   sourceDate?: string;
+  aiGenerated?: boolean;
+  aiReviewed?: boolean;
+  originalityMaxRun?: number;
+  originalitySpans?: string[];
   metricValue?: number;
   metricUnit?: string;
   surveySourceId?: string;
@@ -61,6 +65,13 @@ function cardRowFromInput(input: CardInput) {
     correctionNote: input.correctionNote || null,
     correctedAt: input.correctionNote ? input.correctedAt ?? null : null,
     deepDiveBody: input.deepDiveBody || null,
+    aiGenerated: input.aiGenerated ?? false,
+    aiReviewed: input.aiReviewed ?? false,
+    originalityMaxRun: input.originalityMaxRun ?? null,
+    originalitySpans:
+      input.originalitySpans && input.originalitySpans.length > 0
+        ? JSON.stringify(input.originalitySpans)
+        : null,
     sourceId: input.cardType === "news" ? input.sourceId ?? null : null,
     sourceDate: input.cardType === "news" ? input.sourceDate ?? null : null,
     sourceHeadline: input.cardType === "news" ? input.sourceHeadline || null : null,
@@ -135,10 +146,22 @@ export async function getCardForEdit(id: string) {
 
   return {
     ...row,
+    // Stored as a JSON string; the form needs it as an array.
+    originalitySpans: parseSpans(row.originalitySpans),
     topicIds: topicLinks.map((t) => t.topicId),
     readings: readingRows.map((r) => ({ year: r.year, value: r.value })),
     stateBreakdown: stateRows.map((s) => ({ state: s.state, value: s.value, year: s.year ?? undefined })),
   };
+}
+
+function parseSpans(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function createTopic(input: { title: string; slug: string; shortDescription?: string; sortOrder?: number }) {
