@@ -47,9 +47,11 @@ function scoreBand(score: number | null): string {
 export function TriageBoard({
   clusters,
   topics,
+  aiDraftingEnabled,
 }: {
   clusters: TriageClusterView[];
   topics: { slug: string; title: string }[];
+  aiDraftingEnabled: boolean;
 }) {
   const router = useRouter();
   const topicTitle = useMemo(
@@ -67,6 +69,7 @@ export function TriageBoard({
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState<Busy>(null);
   const [refreshNote, setRefreshNote] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Server data is the source of truth — resync whenever it changes under us.
   useEffect(() => setRows(clusters), [clusters]);
@@ -131,6 +134,21 @@ export function TriageBoard({
     setBusy({ kind: "row", id: row.id });
     await fetch(`/api/admin/inbox/${row.canonicalCandidateId}/draft`, { method: "POST" });
     router.push(`/admin/cards/new?from=${row.canonicalCandidateId}`);
+  }
+
+  async function aiDraft(row: TriageClusterView) {
+    if (!row.canonicalCandidateId) return;
+    setBusy({ kind: "row", id: row.id });
+    setActionError(null);
+    const res = await fetch(`/api/admin/inbox/${row.canonicalCandidateId}/ai-draft`, { method: "POST" });
+    if (res.ok) {
+      const { cardId } = await res.json();
+      router.push(`/admin/cards/${cardId}/edit`);
+      return;
+    }
+    const data = await res.json().catch(() => null);
+    setActionError(data?.error ?? "AI drafting failed. Draft manually instead.");
+    setBusy(null);
   }
 
   async function bulkDismiss() {
@@ -303,6 +321,12 @@ export function TriageBoard({
         </div>
       ) : null}
 
+      {actionError ? (
+        <p className="mb-3 rounded-md border border-maroon bg-maroon/10 px-4 py-2 text-caption text-ink">
+          {actionError}
+        </p>
+      ) : null}
+
       <p className="mb-3 text-caption text-muted">{visible.length} of {rows.length} clusters</p>
 
       {visible.length === 0 ? (
@@ -388,12 +412,26 @@ export function TriageBoard({
                   </div>
 
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    {aiDraftingEnabled ? (
+                      <button
+                        onClick={() => aiDraft(row)}
+                        disabled={isBusy || !row.canonicalCandidateId}
+                        className="whitespace-nowrap rounded-full bg-gold px-3 py-1 font-headline font-medium text-label text-bg disabled:opacity-50"
+                        title="Generate a draft the editor then reviews"
+                      >
+                        AI draft
+                      </button>
+                    ) : null}
                     <button
                       onClick={() => draft(row)}
                       disabled={isBusy || !row.canonicalCandidateId}
-                      className="whitespace-nowrap rounded-full bg-gold px-3 py-1 font-headline font-medium text-label text-bg disabled:opacity-50"
+                      className={`whitespace-nowrap rounded-full px-3 py-1 font-headline font-medium text-label disabled:opacity-50 ${
+                        aiDraftingEnabled
+                          ? "border border-gold text-gold"
+                          : "bg-gold text-bg"
+                      }`}
                     >
-                      Draft
+                      {aiDraftingEnabled ? "Manual" : "Draft"}
                     </button>
                     <button
                       onClick={() => toggleShortlist(row)}

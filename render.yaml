@@ -26,6 +26,12 @@ services:
         sync: false
       - key: ADMIN_SESSION_SECRET
         generateValue: true
+      # Optional — enables AI-assisted drafting in the admin inbox. Without it,
+      # editors draft manually and the publish originality gate still applies.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        sync: false
     disk:
       name: titli-data
       mountPath: /var/data

@@ -1,5 +1,6 @@
 import { listTriageClusters } from "../../../../lib/db/clusterQueries";
 import { getTopics } from "../../../../lib/db/queries";
+import { isGeminiConfigured } from "../../../../lib/ai/draft";
 import { TriageBoard } from "../../../../components/admin/TriageBoard";
 
 export default async function InboxPage() {
@@ -9,6 +10,7 @@ export default async function InboxPage() {
     <TriageBoard
       clusters={clusters}
       topics={topics.map((topic) => ({ slug: topic.slug, title: topic.title }))}
+      aiDraftingEnabled={isGeminiConfigured()}
     />
   );
 }
