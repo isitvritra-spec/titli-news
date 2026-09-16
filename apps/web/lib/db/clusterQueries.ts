@@ -130,18 +130,35 @@ async function clearNewClusters(): Promise<void> {
   await db.delete(storyClusters).where(eq(storyClusters.status, "new"));
 }
 
-export type InboxCluster = {
-  cluster: typeof storyClusters.$inferSelect;
-  candidates: (typeof feedCandidates.$inferSelect)[];
+export type TriageArticle = {
+  id: string;
+  title: string;
+  sourceName: string;
+  link: string;
+  pubDate: string | null;
+};
+
+export type TriageCluster = {
+  id: string;
+  canonicalTitle: string;
+  canonicalCandidateId: string | null;
+  topicGuess: string | null;
+  relevanceScore: number | null;
+  outletCount: number;
+  status: "new" | "shortlisted";
+  firstSeenAt: string;
+  canonicalSourceName: string | null;
+  canonicalTrustTier: TrustTier | null;
+  articles: TriageArticle[];
 };
 
 /**
- * The triage board's data (Phase 3 UI): one row per active story cluster,
- * ranked by relevance, each with its member articles. Loose candidates that
- * never made it into a cluster (e.g. a lone item still being clustered) are
- * intentionally excluded here — the board is cluster-first.
+ * The triage board's data (Phase 3 UI): one active story cluster per row,
+ * ranked by relevance, each enriched with its canonical outlet's trust tier
+ * (for the primary-source badge) and its member articles (for the expanded
+ * view). This is what the editor reads first thing each morning.
  */
-export async function listInboxClusters(): Promise<InboxCluster[]> {
+export async function listTriageClusters(): Promise<TriageCluster[]> {
   const clusters = await db
     .select()
     .from(storyClusters)
@@ -155,16 +172,77 @@ export async function listInboxClusters(): Promise<InboxCluster[]> {
     .from(feedCandidates)
     .where(inArray(feedCandidates.clusterId, clusters.map((cluster) => cluster.id)));
 
-  const byCluster = new Map<string, (typeof feedCandidates.$inferSelect)[]>();
+  const savedSources = await db
+    .select({ name: sources.name, trustTier: sources.trustTier, sourceType: sources.sourceType })
+    .from(sources);
+  const bySavedName = new Map<string, SourceMeta>(
+    savedSources.map((row) => [row.name, { trustTier: row.trustTier, sourceType: row.sourceType }]),
+  );
+
+  const byCluster = new Map<string, TriageArticle[]>();
+  const canonicalName = new Map<string, string>();
   for (const member of members) {
     if (!member.clusterId) continue;
     const list = byCluster.get(member.clusterId) ?? [];
-    list.push(member);
+    list.push({
+      id: member.id,
+      title: member.title,
+      sourceName: member.sourceName,
+      link: member.link,
+      pubDate: member.pubDate,
+    });
     byCluster.set(member.clusterId, list);
+    if (member.id === clusters.find((c) => c.id === member.clusterId)?.canonicalCandidateId) {
+      canonicalName.set(member.clusterId, member.sourceName);
+    }
   }
 
-  return clusters.map((cluster) => ({
-    cluster,
-    candidates: byCluster.get(cluster.id) ?? [],
-  }));
+  return clusters.map((cluster) => {
+    const sourceName = canonicalName.get(cluster.id) ?? null;
+    return {
+      id: cluster.id,
+      canonicalTitle: cluster.canonicalTitle,
+      canonicalCandidateId: cluster.canonicalCandidateId,
+      topicGuess: cluster.topicGuess,
+      relevanceScore: cluster.relevanceScore,
+      outletCount: cluster.outletCount,
+      status: cluster.status as "new" | "shortlisted",
+      firstSeenAt: cluster.firstSeenAt,
+      canonicalSourceName: sourceName,
+      canonicalTrustTier: sourceName ? metaFor(sourceName, bySavedName).trustTier : null,
+      articles: (byCluster.get(cluster.id) ?? []).sort((a, b) =>
+        (b.pubDate ?? "").localeCompare(a.pubDate ?? ""),
+      ),
+    };
+  });
 }
+
+/** Dismiss a whole cluster in one action — the main time saving over per-article triage. */
+export async function dismissCluster(id: string): Promise<void> {
+  await db.update(storyClusters).set({ status: "dismissed" }).where(eq(storyClusters.id, id));
+  await db
+    .update(feedCandidates)
+    .set({ status: "dismissed", dismissed: true })
+    .where(eq(feedCandidates.clusterId, id));
+}
+
+export async function dismissClusters(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db.update(storyClusters).set({ status: "dismissed" }).where(inArray(storyClusters.id, ids));
+  await db
+    .update(feedCandidates)
+    .set({ status: "dismissed", dismissed: true })
+    .where(inArray(feedCandidates.clusterId, ids));
+}
+
+/** Mark a cluster for the edition composer's shortlist without drafting yet. */
+export async function shortlistCluster(id: string, shortlisted: boolean): Promise<void> {
+  const clusterStatus = shortlisted ? "shortlisted" : "new";
+  const candidateStatus = shortlisted ? "shortlisted" : "new";
+  await db.update(storyClusters).set({ status: clusterStatus }).where(eq(storyClusters.id, id));
+  await db
+    .update(feedCandidates)
+    .set({ status: candidateStatus })
+    .where(eq(feedCandidates.clusterId, id));
+}
+
