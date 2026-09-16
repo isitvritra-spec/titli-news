@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EDITION_ROLE_CONFIG, type EditionRole } from "@repo/api-client";
+import { suggestEdition } from "../../lib/editionSuggestion";
 
 type DistressLevel = "low" | "medium" | "high";
 
@@ -50,6 +51,28 @@ export function EditionComposer({
   const [schedule, setSchedule] = useState(toDatetimeLocal(scheduledFor));
   const [busy, setBusy] = useState<"save" | "schedule" | "publish" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  const searchedCards = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return cards;
+    return cards.filter((card) => card.headline.toLowerCase().includes(q));
+  }, [cards, search]);
+
+  function suggest() {
+    const proposal = suggestEdition(
+      cards.map((card) => ({
+        id: card.id,
+        cardType: card.cardType,
+        primaryTopicId: card.primaryTopicId,
+        sourceKey: card.sourceKey,
+      })),
+      EDITION_ROLE_CONFIG.map((config) => config.role),
+    );
+    setSlots((current) =>
+      current.map((slot) => ({ ...slot, cardId: proposal[slot.role] ?? slot.cardId })),
+    );
+  }
 
   const selectedIds = slots.map((slot) => slot.cardId).filter(Boolean);
   const duplicates = selectedIds.filter((id, index) => selectedIds.indexOf(id) !== index);
@@ -155,6 +178,23 @@ export function EditionComposer({
         </div>
       ) : null}
 
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Filter cards in the pickers…"
+          className="min-w-[220px] flex-1 rounded-md border border-hairline bg-bg px-3 py-2 text-body text-ink placeholder:text-muted"
+        />
+        <button
+          type="button"
+          onClick={suggest}
+          disabled={cards.length < 7}
+          className="rounded-full border border-jade px-4 py-2 font-headline text-label text-jade disabled:opacity-40"
+        >
+          Suggest a balanced edition
+        </button>
+      </div>
+
       <div className="grid gap-4">
         {EDITION_ROLE_CONFIG.map((config, index) => {
           const slot = slots[index]!;
@@ -173,7 +213,10 @@ export function EditionComposer({
                   className="w-full rounded-md border border-hairline bg-bg px-3 py-2 text-ink"
                 >
                   <option value="">Choose a published card...</option>
-                  {cards.map((card) => (
+                  {(slot.cardId && !searchedCards.some((card) => card.id === slot.cardId)
+                    ? [cards.find((card) => card.id === slot.cardId)!, ...searchedCards]
+                    : searchedCards
+                  ).map((card) => (
                     <option key={card.id} value={card.id} disabled={selectedIds.includes(card.id) && slot.cardId !== card.id}>
                       {card.cardType === "data" ? "DATA · " : ""}{card.headline}
                     </option>

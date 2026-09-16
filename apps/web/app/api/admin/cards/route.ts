@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { isAdminAuthenticated } from "../../../../lib/adminAuth";
 import { listCardsForAdmin, createCard } from "../../../../lib/db/adminQueries";
 import { markCandidateDrafted } from "../../../../lib/db/inboxQueries";
+import { recordAdminAction } from "../../../../lib/db/auditQueries";
 import { cardInputSchema } from "../../../../lib/validation";
 
 export async function GET() {
@@ -25,6 +26,12 @@ export async function POST(request: NextRequest) {
   }
 
   const id = await createCard(parsed.data);
+  await recordAdminAction({
+    action: parsed.data.status === "published" ? "card_publish" : "card_draft",
+    entityType: "card",
+    entityId: id,
+    detail: parsed.data.headline,
+  });
 
   const fromCandidate = request.nextUrl.searchParams.get("fromCandidate");
   if (fromCandidate) {

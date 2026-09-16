@@ -36,6 +36,9 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
           <Link href="/admin/analytics" className="font-headline font-medium text-label text-muted hover:text-ink">
             Analytics
           </Link>
+          <Link href="/admin/activity" className="font-headline font-medium text-label text-muted hover:text-ink">
+            Activity
+          </Link>
           <LogoutButton />
         </nav>
       </header>

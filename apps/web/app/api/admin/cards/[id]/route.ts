@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { isAdminAuthenticated } from "../../../../../lib/adminAuth";
 import { deleteCard, getCardForEdit, updateCard } from "../../../../../lib/db/adminQueries";
+import { recordAdminAction } from "../../../../../lib/db/auditQueries";
 import { cardInputSchema } from "../../../../../lib/validation";
 import { deleteUploadedImage } from "../../../../../lib/images";
 
@@ -28,6 +29,12 @@ export async function PUT(request: Request, context: RouteContext<"/api/admin/ca
   }
 
   await updateCard(id, parsed.data);
+  await recordAdminAction({
+    action: parsed.data.status === "published" ? "card_publish" : "card_update",
+    entityType: "card",
+    entityId: id,
+    detail: parsed.data.headline,
+  });
   revalidatePath("/", "layout");
 
   return NextResponse.json({ ok: true });

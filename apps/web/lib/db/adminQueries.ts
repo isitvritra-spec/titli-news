@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
 import { db } from "./client";
 import { cardReadings, cards, cardStateBreakdown, cardTopics, pulseMetrics, sources, topics } from "./schema";
 
@@ -79,6 +79,8 @@ function cardRowFromInput(input: CardInput) {
     metricUnit: input.cardType === "data" ? input.metricUnit ?? null : null,
     surveySourceId: input.cardType === "data" ? input.surveySourceId ?? null : null,
     methodologyNote: input.cardType === "data" ? input.methodologyNote ?? null : null,
+    // Stamped when the card is in its published state; who is a constant today.
+    approvedBy: input.status === "published" ? "editor" : null,
   };
 }
 
@@ -103,7 +105,10 @@ async function replaceCardChildren(cardId: string, input: CardInput) {
 }
 
 export async function createCard(input: CardInput): Promise<string> {
-  const [row] = await db.insert(cards).values(cardRowFromInput(input)).returning({ id: cards.id });
+  const [row] = await db
+    .insert(cards)
+    .values({ ...cardRowFromInput(input), createdBy: "editor" })
+    .returning({ id: cards.id });
   await replaceCardChildren(row.id, input);
   return row.id;
 }
@@ -132,6 +137,86 @@ export async function listCardsForAdmin() {
     })
     .from(cards)
     .orderBy(cards.publishedAt);
+}
+
+export type CardsPageFilter = {
+  search?: string;
+  status?: "draft" | "published" | "archived";
+  topicId?: string;
+  limit?: number;
+  offset?: number;
+};
+
+/** Paginated, filterable card list for the dashboard — the archive can be large. */
+export async function listCardsPage(filter: CardsPageFilter = {}) {
+  const limit = filter.limit ?? 25;
+  const offset = filter.offset ?? 0;
+
+  const conditions: SQL[] = [];
+  if (filter.status) conditions.push(eq(cards.status, filter.status));
+  if (filter.topicId) conditions.push(eq(cards.primaryTopicId, filter.topicId));
+  if (filter.search?.trim()) {
+    const term = `%${filter.search.trim().toLowerCase()}%`;
+    const match = or(like(cards.headline, term), like(cards.slug, term));
+    if (match) conditions.push(match);
+  }
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const rows = await db
+    .select({
+      id: cards.id,
+      cardType: cards.cardType,
+      headline: cards.headline,
+      status: cards.status,
+      publishedAt: cards.publishedAt,
+      aiGenerated: cards.aiGenerated,
+    })
+    .from(cards)
+    .where(where)
+    .orderBy(desc(cards.publishedAt))
+    .limit(limit)
+    .offset(offset);
+
+  const counted = await db.select({ id: cards.id }).from(cards).where(where);
+
+  return { rows, total: counted.length, limit, offset };
+}
+
+const composerCardColumns = {
+  id: cards.id,
+  cardType: cards.cardType,
+  headline: cards.headline,
+  slug: cards.slug,
+  publishedAt: cards.publishedAt,
+  status: cards.status,
+  primaryTopicId: cards.primaryTopicId,
+  sourceId: cards.sourceId,
+  surveySourceId: cards.surveySourceId,
+};
+
+/**
+ * The composer's card pool — recent published cards plus any already in the
+ * edition being edited, so the seven pickers stay small and fast even when the
+ * archive is large, without hiding a card the editor already placed.
+ */
+export async function getComposableCards(slottedIds: string[], limit = 80) {
+  const recent = await db
+    .select(composerCardColumns)
+    .from(cards)
+    .where(eq(cards.status, "published"))
+    .orderBy(desc(cards.publishedAt))
+    .limit(limit);
+
+  const have = new Set(recent.map((card) => card.id));
+  const missing = slottedIds.filter((id) => id && !have.has(id));
+  if (missing.length === 0) return recent;
+
+  const extra = await db
+    .select(composerCardColumns)
+    .from(cards)
+    .where(inArray(cards.id, missing));
+
+  return [...recent, ...extra];
 }
 
 export async function getCardForEdit(id: string) {

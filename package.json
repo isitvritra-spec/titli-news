@@ -6,7 +6,7 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "test": "tsx --test apps/mobile/lib/checkIn.test.ts apps/mobile/lib/contentBalance.test.ts apps/mobile/lib/editionFreshness.test.ts apps/mobile/lib/feedPaging.test.ts apps/mobile/lib/personalization.test.ts apps/web/lib/analyticsSummary.test.ts apps/web/lib/clustering.test.ts apps/web/lib/hotStories.test.ts apps/web/lib/originality.test.ts apps/web/lib/relevance.test.ts apps/web/lib/validation.test.ts"
+    "test": "tsx --test apps/mobile/lib/checkIn.test.ts apps/mobile/lib/contentBalance.test.ts apps/mobile/lib/editionFreshness.test.ts apps/mobile/lib/feedPaging.test.ts apps/mobile/lib/personalization.test.ts apps/web/lib/analyticsSummary.test.ts apps/web/lib/clustering.test.ts apps/web/lib/editionSuggestion.test.ts apps/web/lib/hotStories.test.ts apps/web/lib/originality.test.ts apps/web/lib/relevance.test.ts apps/web/lib/validation.test.ts"
   },
   "devDependencies": {
     "qrcode-terminal": "^0.11.0",

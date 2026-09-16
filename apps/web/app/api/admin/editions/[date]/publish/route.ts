@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { isAdminAuthenticated } from "../../../../../../lib/adminAuth";
 import { publishEdition } from "../../../../../../lib/db/editionQueries";
+import { recordAdminAction } from "../../../../../../lib/db/auditQueries";
 
 export async function POST(_request: Request, context: RouteContext<"/api/admin/editions/[date]/publish">) {
   if (!(await isAdminAuthenticated())) {
@@ -12,6 +13,12 @@ export async function POST(_request: Request, context: RouteContext<"/api/admin/
   const { date } = await context.params;
   try {
     const published = await publishEdition(date);
+    await recordAdminAction({
+      action: "edition_publish",
+      entityType: "edition",
+      entityId: published.id,
+      detail: `${date} · v${published.version}`,
+    });
     revalidatePath("/", "layout");
     return NextResponse.json({ ...published, status: "published" });
   } catch (error) {

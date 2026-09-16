@@ -128,6 +128,10 @@ export const cards = sqliteTable("cards", {
   originalityMaxRun: integer("originality_max_run"),
   originalitySpans: text("originality_spans"),
 
+  /** Authorship, for a future multi-editor setup — a constant "editor" today. */
+  createdBy: text("created_by"),
+  approvedBy: text("approved_by"),
+
   // News-only
   sourceId: text("source_id").references(() => sources.id),
   sourceDate: text("source_date"),
@@ -294,6 +298,25 @@ export const pulseMetrics = sqliteTable("pulse_metrics", {
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   updatedAt: text("updated_at").notNull().default(sql`(current_timestamp)`),
 });
+
+/**
+ * An append-only log of consequential editor actions (draft, publish, dismiss).
+ * Single-admin today, so `actor` is a constant; the column exists so attributing
+ * actions to real accounts later is additive rather than a migration of intent.
+ */
+export const adminActions = sqliteTable(
+  "admin_actions",
+  {
+    id: id(),
+    actor: text("actor").notNull().default("editor"),
+    action: text("action").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id").notNull(),
+    detail: text("detail"),
+    ...timestamps,
+  },
+  (table) => [index("admin_actions_created_idx").on(table.createdAt)],
+);
 
 export const analyticsEvents = sqliteTable(
   "analytics_events",

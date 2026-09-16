@@ -1,7 +1,7 @@
 import { EDITION_ROLE_CONFIG } from "@repo/api-client";
 
 import { EditionComposer } from "../../../../components/admin/EditionComposer";
-import { listCardsForAdmin } from "../../../../lib/db/adminQueries";
+import { getComposableCards } from "../../../../lib/db/adminQueries";
 import {
   editionDateInIndia,
   getEditionForAdmin,
@@ -12,13 +12,9 @@ export const dynamic = "force-dynamic";
 
 export default async function EditionsPage() {
   const date = editionDateInIndia();
-  const [edition, allCards] = await Promise.all([
-    getEditionForAdmin(date),
-    listCardsForAdmin(),
-  ]);
-  const publishedCards = [...allCards]
-    .filter((card) => card.status === "published")
-    .reverse();
+  const edition = await getEditionForAdmin(date);
+  const slottedIds = (edition?.slots ?? []).map((slot) => slot.cardId).filter(Boolean);
+  const publishedCards = await getComposableCards(slottedIds);
 
   const initialSlots = EDITION_ROLE_CONFIG.map((config) => {
     const existing = edition?.slots.find((slot) => slot.role === config.role);
