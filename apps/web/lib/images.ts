@@ -81,8 +81,10 @@ export async function saveImageFromUrl(url: string): Promise<SavedImage | null> 
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) return null;
 
+    // Many image CDNs serve a generic type (binary/octet-stream) — only reject
+    // things that are clearly not images (error pages). sharp validates the rest.
     const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.startsWith("image/")) return null;
+    if (/text\/|html|xml|json/i.test(contentType)) return null;
 
     const contentLength = Number(res.headers.get("content-length") ?? 0);
     if (contentLength > MAX_IMAGE_BYTES) return null;

@@ -7,7 +7,7 @@ import { createCard, type CardInput } from "./adminQueries";
 import { getInboxCandidateById, markCandidateDrafted, prepareDraft } from "./inboxQueries";
 import { ensureEditionDraft, editionDateInIndia } from "./editionQueries";
 import { findVerbatimRuns } from "../originality";
-import { generatePlaceholderImage } from "../images";
+import { generatePlaceholderImage, saveImageFromArticle, saveImageFromUrl } from "../images";
 
 const DAILY_TARGET = EDITION_ROLE_CONFIG.length; // 7
 
@@ -82,6 +82,44 @@ async function topicTitleForSlug(slug: string): Promise<string | null> {
   return row?.title ?? null;
 }
 
+type ResolvedImage = {
+  image: { path: string; alt: string; width: number; height: number; blurDataURL: string };
+  origin: "own_upload" | "source_permitted" | "generated";
+  credit?: string;
+  sourceUrl?: string;
+};
+
+/** The image waterfall — editor upload → source image (with credit) → topic placeholder. */
+async function resolveCardImage(
+  input: PublishStoryInput,
+  candidate: NonNullable<Awaited<ReturnType<typeof getInboxCandidateById>>>,
+  chosenSlug: string | null,
+): Promise<ResolvedImage> {
+  if (input.image) {
+    return { image: { ...input.image, alt: input.image.alt || input.headline }, origin: "own_upload" };
+  }
+
+  const sourced =
+    (candidate.imageUrl ? await saveImageFromUrl(candidate.imageUrl) : null) ??
+    (await saveImageFromArticle(candidate.link));
+
+  if (sourced) {
+    return {
+      image: { path: sourced.path, alt: input.headline, width: sourced.width, height: sourced.height, blurDataURL: sourced.blurDataURL },
+      origin: "source_permitted",
+      credit: candidate.sourceName,
+      sourceUrl: candidate.link,
+    };
+  }
+
+  const topicTitle = chosenSlug ? await topicTitleForSlug(chosenSlug) : null;
+  const placeholder = await generatePlaceholderImage(input.headline, topicTitle ?? undefined);
+  return {
+    image: { path: placeholder.path, alt: input.headline, width: placeholder.width, height: placeholder.height, blurDataURL: placeholder.blurDataURL },
+    origin: "generated",
+  };
+}
+
 export type PublishStoryInput = {
   clusterId: string;
   headline: string;
@@ -124,28 +162,11 @@ export async function publishStoryFromCluster(
   const deepDive = input.deepDive?.trim() || input.summary;
   const originality = input.sourceText ? findVerbatimRuns(input.summary, input.sourceText) : null;
 
-  // Image resolution, in order: an editor upload wins; then a policy-permitted
-  // source image; otherwise a generated placeholder tinted and labelled for the
-  // chosen topic (so it reads as intentional, not blank).
-  const usingOwnImage = Boolean(input.image);
-  const hasSourceImage = candidate.draftImageOrigin === "source_permitted" && Boolean(candidate.draftImagePath);
-  let image: { path: string; alt: string; width: number; height: number; blurDataURL: string };
-
-  if (input.image) {
-    image = input.image;
-  } else if (hasSourceImage) {
-    image = {
-      path: candidate.draftImagePath!,
-      alt: candidate.draftImageAlt ?? input.headline,
-      width: candidate.draftImageWidth ?? 0,
-      height: candidate.draftImageHeight ?? 0,
-      blurDataURL: candidate.draftImageBlurDataUrl ?? "",
-    };
-  } else {
-    const topicTitle = chosenSlug ? await topicTitleForSlug(chosenSlug) : null;
-    const placeholder = await generatePlaceholderImage(input.headline, topicTitle ?? undefined);
-    image = { path: placeholder.path, alt: input.headline, width: placeholder.width, height: placeholder.height, blurDataURL: placeholder.blurDataURL };
-  }
+  // Every card gets an image. In order: an editor upload; then the source's own
+  // image (RSS thumbnail, then the article's social image) shown with a credit,
+  // Inshorts-style; and only if none can be sourced, a generated placeholder
+  // tinted and labelled for the topic. So there is never a blank card.
+  const resolved = await resolveCardImage(input, candidate, chosenSlug);
 
   const cardInput: CardInput = {
     cardType: "news",
@@ -154,15 +175,14 @@ export async function publishStoryFromCluster(
     slug: slugify(input.headline, candidateId),
     body: input.summary,
     deepDiveBody: deepDive,
-    imagePath: image.path,
-    imageAlt: image.alt || input.headline,
-    imageWidth: image.width,
-    imageHeight: image.height,
-    imageBlurDataUrl: image.blurDataURL,
-    imageOrigin: usingOwnImage ? "own_upload" : hasSourceImage ? "source_permitted" : "generated",
-    // Inshorts-style: a re-hosted source image always carries its credit.
-    imageCredit: hasSourceImage ? candidate.draftImageCredit ?? candidate.sourceName : undefined,
-    imageSourceUrl: hasSourceImage ? candidate.link : undefined,
+    imagePath: resolved.image.path,
+    imageAlt: resolved.image.alt || input.headline,
+    imageWidth: resolved.image.width,
+    imageHeight: resolved.image.height,
+    imageBlurDataUrl: resolved.image.blurDataURL,
+    imageOrigin: resolved.origin,
+    imageCredit: resolved.credit,
+    imageSourceUrl: resolved.sourceUrl,
     publishedAt: new Date().toISOString(),
     isContested: false,
     topicIds: primaryTopicId ? [primaryTopicId] : [],
