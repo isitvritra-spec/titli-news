@@ -17,27 +17,15 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
           <BrandMark />
           <span className="text-caption text-muted">— Editor</span>
         </Link>
-        <nav className="flex items-center gap-4">
-          <Link href="/admin/editions" className="font-headline font-medium text-label text-muted hover:text-ink">
-            Editions
+        <nav className="flex items-center gap-5">
+          <Link href="/admin/today" className="font-headline font-medium text-label text-ink hover:text-gold">
+            Today
           </Link>
-          <Link href="/admin/inbox" className="font-headline font-medium text-label text-muted hover:text-ink">
-            Inbox
+          <Link href="/admin/insights" className="font-headline font-medium text-label text-ink hover:text-gold">
+            Insights
           </Link>
-          <Link href="/admin/topics" className="font-headline font-medium text-label text-muted hover:text-ink">
-            Topics
-          </Link>
-          <Link href="/admin/sources" className="font-headline font-medium text-label text-muted hover:text-ink">
-            Sources
-          </Link>
-          <Link href="/admin/pulse" className="font-headline font-medium text-label text-muted hover:text-ink">
-            Pulse
-          </Link>
-          <Link href="/admin/analytics" className="font-headline font-medium text-label text-muted hover:text-ink">
-            Analytics
-          </Link>
-          <Link href="/admin/activity" className="font-headline font-medium text-label text-muted hover:text-ink">
-            Activity
+          <Link href="/admin/tools" className="font-headline text-label text-muted hover:text-ink">
+            Tools
           </Link>
           <LogoutButton />
         </nav>

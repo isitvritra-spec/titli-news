@@ -111,13 +111,18 @@ export async function ensureEditionDraft(date = editionDateInIndia()) {
   const existing = await getEditionForAdmin(date);
   if (existing) return existing;
 
-  await db.insert(editions).values({
-    editionDate: date,
-    timezone: EDITION_TIMEZONE,
-    status: "draft",
-    scheduledFor: sevenAmIndia(date),
-    updatedAt: new Date().toISOString(),
-  });
+  // onConflictDoNothing makes this safe when two requests race to create the
+  // same day's edition (e.g. the Today screen loads several queries at once).
+  await db
+    .insert(editions)
+    .values({
+      editionDate: date,
+      timezone: EDITION_TIMEZONE,
+      status: "draft",
+      scheduledFor: sevenAmIndia(date),
+      updatedAt: new Date().toISOString(),
+    })
+    .onConflictDoNothing({ target: editions.editionDate });
   return (await getEditionForAdmin(date))!;
 }
 

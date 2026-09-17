@@ -13,7 +13,7 @@ export function CardsFilters({ topics }: { topics: { id: string; title: string }
       else query.delete(key);
     }
     query.delete("page"); // any filter change returns to the first page
-    router.push(`/admin?${query.toString()}`);
+    router.push(`/admin/library?${query.toString()}`);
   }
 
   return (
