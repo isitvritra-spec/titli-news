@@ -77,6 +77,16 @@ export type PublishStoryInput = {
   headline: string;
   summary: string;
   deepDive?: string;
+  /** Topic the editor chose in the edit view; falls back to the code's guess. */
+  topicSlug?: string;
+  /** A replacement image the editor uploaded; falls back to the policy-selected one. */
+  image?: {
+    path: string;
+    alt: string;
+    width: number;
+    height: number;
+    blurDataURL: string;
+  };
   /** The source text, when the AI produced this draft — used only to score originality, never stored. */
   sourceText?: string;
   aiGenerated?: boolean;
@@ -99,9 +109,19 @@ export async function publishStoryFromCluster(
   const candidate = await getInboxCandidateById(candidateId);
   if (!prepared || !candidate) throw new Error("Could not prepare this story");
 
-  const primaryTopicId = await topicIdForSlug(cluster.topicGuess);
+  const primaryTopicId = await topicIdForSlug(input.topicSlug ?? cluster.topicGuess);
   const deepDive = input.deepDive?.trim() || input.summary;
   const originality = input.sourceText ? findVerbatimRuns(input.summary, input.sourceText) : null;
+
+  // An editor-uploaded image wins; otherwise the policy-selected draft image.
+  const usingOwnImage = Boolean(input.image);
+  const image = input.image ?? {
+    path: candidate.draftImagePath ?? "",
+    alt: candidate.draftImageAlt ?? input.headline,
+    width: candidate.draftImageWidth ?? 0,
+    height: candidate.draftImageHeight ?? 0,
+    blurDataURL: candidate.draftImageBlurDataUrl ?? "",
+  };
 
   const cardInput: CardInput = {
     cardType: "news",
@@ -110,14 +130,14 @@ export async function publishStoryFromCluster(
     slug: slugify(input.headline, candidateId),
     body: input.summary,
     deepDiveBody: deepDive,
-    imagePath: candidate.draftImagePath ?? "",
-    imageAlt: candidate.draftImageAlt ?? input.headline,
-    imageWidth: candidate.draftImageWidth ?? 0,
-    imageHeight: candidate.draftImageHeight ?? 0,
-    imageBlurDataUrl: candidate.draftImageBlurDataUrl ?? "",
-    imageOrigin: candidate.draftImageOrigin ?? "generated",
-    imageCredit: candidate.draftImageCredit ?? undefined,
-    imageSourceUrl: candidate.draftImageOrigin === "source_permitted" ? candidate.link : undefined,
+    imagePath: image.path,
+    imageAlt: image.alt || input.headline,
+    imageWidth: image.width,
+    imageHeight: image.height,
+    imageBlurDataUrl: image.blurDataURL,
+    imageOrigin: usingOwnImage ? "own_upload" : candidate.draftImageOrigin ?? "generated",
+    imageCredit: usingOwnImage ? undefined : candidate.draftImageCredit ?? undefined,
+    imageSourceUrl: !usingOwnImage && candidate.draftImageOrigin === "source_permitted" ? candidate.link : undefined,
     publishedAt: new Date().toISOString(),
     isContested: false,
     topicIds: primaryTopicId ? [primaryTopicId] : [],

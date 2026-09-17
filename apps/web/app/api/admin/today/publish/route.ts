@@ -11,6 +11,16 @@ const bodySchema = z.object({
   headline: z.string().min(1),
   summary: z.string().min(1),
   deepDive: z.string().optional(),
+  topicSlug: z.string().optional(),
+  image: z
+    .object({
+      path: z.string().min(1),
+      alt: z.string(),
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+      blurDataURL: z.string().min(1),
+    })
+    .optional(),
   aiGenerated: z.boolean().optional(),
 });
 
