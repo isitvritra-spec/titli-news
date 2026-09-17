@@ -8,6 +8,7 @@ import { getInboxCandidateById, markCandidateDrafted, prepareDraft } from "./inb
 import { ensureEditionDraft, editionDateInIndia } from "./editionQueries";
 import { findVerbatimRuns } from "../originality";
 import { generatePlaceholderImage, saveImageFromArticle, saveImageFromUrl } from "../images";
+import { cleanTitle } from "../rss";
 
 const DAILY_TARGET = EDITION_ROLE_CONFIG.length; // 7
 
@@ -50,7 +51,7 @@ export async function getModerationQueue(limit = 40): Promise<ModerationStory[]>
 
   return rows.map((row) => ({
     clusterId: row.clusterId,
-    headline: row.headline,
+    headline: cleanTitle(row.headline),
     sourceName: row.sourceName,
     outletCount: row.outletCount,
     topicSlug: row.topicSlug,
@@ -235,6 +236,22 @@ async function appendToTodayEdition(cardId: string): Promise<{ chosen: number; t
   });
 
   return { chosen: position + 1, target: DAILY_TARGET };
+}
+
+/**
+ * Undo an approval: take the card out of today's edition, archive it, and put
+ * the story back in the moderation queue so it can be reviewed again.
+ */
+export async function undoPublish(cardId: string, clusterId?: string): Promise<void> {
+  await removeFromTodayEdition(cardId);
+  await db.update(cards).set({ status: "archived" }).where(eq(cards.id, cardId));
+  if (clusterId) {
+    await db.update(storyClusters).set({ status: "new" }).where(eq(storyClusters.id, clusterId));
+    await db
+      .update(feedCandidates)
+      .set({ status: "new", draftedCardId: null })
+      .where(eq(feedCandidates.clusterId, clusterId));
+  }
 }
 
 /** Remove a card the moderator changed their mind about from today's edition (before it goes live). */

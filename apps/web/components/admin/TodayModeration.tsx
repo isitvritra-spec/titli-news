@@ -14,6 +14,13 @@ export type ModerationStory = {
   pubDate: string | null;
 };
 
+/** Route a raw publisher image URL through our proxy (their CDNs block hotlinking); leave our own URLs alone. */
+function previewSrc(url: string | null): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("/") || url.startsWith("data:")) return url;
+  return `/api/admin/preview-image?url=${encodeURIComponent(url)}`;
+}
+
 /** "2 days ago · 15 Sep" from the source's publish date — so the moderator judges freshness. */
 function sourceAge(iso: string | null): string | null {
   if (!iso) return null;
@@ -25,7 +32,7 @@ function sourceAge(iso: string | null): string | null {
   return `${rel} · ${date}`;
 }
 
-export type ChosenCard = { cardId: string; headline: string; imagePath: string; position: number };
+export type ChosenCard = { cardId: string; headline: string; imagePath: string; position: number; clusterId?: string };
 
 type DraftImage = { path: string; alt: string; width: number; height: number; blurDataURL: string };
 type Suggestion = { headline: string; summary: string; deepDive: string };
@@ -196,10 +203,20 @@ export function TodayModeration({
     const data = await res.json();
     setChosenList((current) => [
       ...current,
-      { cardId: data.cardId, headline: draft.headline, imagePath: draft.image?.path ?? draft.story.previewImageUrl ?? "", position: current.length },
+      { cardId: data.cardId, headline: draft.headline, imagePath: draft.image?.path ?? draft.story.previewImageUrl ?? "", position: current.length, clusterId: draft.story.clusterId },
     ]);
     dropStory(draft.story.clusterId);
     setDraft(null);
+    router.refresh();
+  }
+
+  async function undo(card: ChosenCard) {
+    setChosenList((current) => current.filter((c) => c.cardId !== card.cardId));
+    await fetch("/api/admin/today/undo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cardId: card.cardId, clusterId: card.clusterId }),
+    });
     router.refresh();
   }
 
@@ -216,7 +233,7 @@ export function TodayModeration({
     router.refresh();
   }
 
-  const previewImage = draft?.image?.path ?? draft?.story.previewImageUrl ?? null;
+  const previewImage = previewSrc(draft?.image?.path ?? draft?.story.previewImageUrl ?? null) ?? null;
   const topicTitle = draft ? topicLabels[draft.topicSlug] ?? draft.topicSlug : "";
 
   return (
@@ -246,16 +263,23 @@ export function TodayModeration({
         </div>
         {chosenList.length > 0 ? (
           <div className="mt-3 flex items-center gap-2 overflow-x-auto">
-            <span className="shrink-0 text-caption text-muted">Chosen:</span>
+            <span className="shrink-0 text-caption text-muted">Chosen (tap ✕ to undo):</span>
             {chosenList.map((card) => (
-              <span key={card.cardId} title={card.headline} className="shrink-0 overflow-hidden rounded-md border border-hairline">
+              <button
+                key={card.cardId}
+                type="button"
+                onClick={() => undo(card)}
+                title={`Undo — ${card.headline}`}
+                className="group relative shrink-0 overflow-hidden rounded-md border border-hairline"
+              >
                 {card.imagePath ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={card.imagePath} alt="" className="h-8 w-12 object-cover" />
                 ) : (
                   <span className="flex h-8 w-12 items-center justify-center bg-pressed text-caption text-muted">{card.position + 1}</span>
                 )}
-              </span>
+                <span className="absolute inset-0 flex items-center justify-center bg-ink/60 text-bg opacity-0 transition group-hover:opacity-100">✕</span>
+              </button>
             ))}
           </div>
         ) : null}
@@ -281,7 +305,12 @@ export function TodayModeration({
                 <div className="relative aspect-[16/10] w-full overflow-hidden bg-pressed">
                   {story.previewImageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={story.previewImageUrl} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
+                    <img
+                      src={previewSrc(story.previewImageUrl)}
+                      alt=""
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                      onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    />
                   ) : null}
                   {story.topicSlug ? (
                     <span className="absolute left-3 top-3 rounded-full bg-bg/85 px-2 py-0.5 text-caption text-ink backdrop-blur">

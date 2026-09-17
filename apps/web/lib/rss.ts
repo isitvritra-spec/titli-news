@@ -164,12 +164,30 @@ function extractSummary(item: RawItem): string | null {
   return text.length >= 40 ? text.slice(0, 1200) : null;
 }
 
+/** Strip HTML tags and decode the common entities RSS titles carry (e.g. "<i>suo motu</i>", "&#8217;"). */
+export function cleanTitle(raw: string): string {
+  return raw
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#0?39;|&apos;|&#8217;|&rsquo;/gi, "’")
+    .replace(/&#8216;|&lsquo;/gi, "‘")
+    .replace(/&quot;|&#8220;|&ldquo;/gi, "“")
+    .replace(/&#8221;|&rdquo;/gi, "”")
+    .replace(/&#8211;|&ndash;/gi, "–")
+    .replace(/&#8212;|&mdash;/gi, "—")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function toCandidate(item: RawItem, source: { name: string; siteUrl: string }): FeedCandidateInput | null {
   if (!item.title || !item.link) return null;
   return {
     sourceName: source.name,
     sourceSiteUrl: source.siteUrl,
-    title: item.title.trim(),
+    title: cleanTitle(item.title),
     link: item.link,
     imageUrl: extractImage(item),
     pubDate: item.isoDate ?? item.pubDate ?? null,
