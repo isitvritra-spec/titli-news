@@ -133,6 +133,22 @@ export function ReadingCard({
           accessibilityLabel={card.image.alt}
           transition={250}
         />
+        {card.image.credit ? (
+          <Text
+            style={{
+              position: "absolute",
+              right: 0,
+              bottom: 0,
+              paddingHorizontal: 8,
+              paddingVertical: 3,
+              fontSize: 10,
+              color: "#FFFFFF",
+              backgroundColor: "rgba(17,18,16,0.6)",
+            }}
+          >
+            {card.image.credit}
+          </Text>
+        ) : null}
         {isData && card.metric ? (
           <LinearGradient
             colors={["#11121012", "#111210E8"]}

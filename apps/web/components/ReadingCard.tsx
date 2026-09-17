@@ -31,6 +31,11 @@ export function ReadingCard({ card, index = 0 }: { card: Card; index?: number })
           blurDataURL={card.image.blurDataURL}
           priority={false}
         />
+        {card.image.credit ? (
+          <span className="absolute bottom-0 right-0 bg-scrim px-2 py-1 text-caption text-bg">
+            {card.image.credit}
+          </span>
+        ) : null}
       </div>
 
       <Link

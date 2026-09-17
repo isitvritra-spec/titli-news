@@ -172,66 +172,63 @@ export async function saveImageFromArticle(articleUrl: string): Promise<SavedIma
   }
 }
 
+// Distinct hues so different topics read differently, all mid-dark with a
+// cream/gold mark and label that stays legible.
 const EDITORIAL_PALETTES = [
-  { background: "#110D0F", primary: "#C83D4B", secondary: "#C9975A" },
-  { background: "#171014", primary: "#633F59", secondary: "#C9975A" },
-  { background: "#101514", primary: "#5E8C82", secondary: "#F2EFE9" },
-  { background: "#1A1012", primary: "#7F222D", secondary: "#C9975A" },
+  { background: "#3A1A22", primary: "#C83D4B", secondary: "#F2EFE9" }, // rose
+  { background: "#2A1B33", primary: "#8A5A96", secondary: "#F2EFE9" }, // plum
+  { background: "#12312E", primary: "#5E8C82", secondary: "#F2EFE9" }, // teal
+  { background: "#1E3A24", primary: "#5C8B5A", secondary: "#F2EFE9" }, // forest
+  { background: "#1B2540", primary: "#5B77B0", secondary: "#F2EFE9" }, // indigo
+  { background: "#3A2410", primary: "#C9873A", secondary: "#F2EFE9" }, // amber
+  { background: "#2C2A34", primary: "#8A86A0", secondary: "#F2EFE9" }, // slate
+  { background: "#3A121A", primary: "#7F222D", secondary: "#C9975A" }, // maroon
 ] as const;
 
+function escapeXml(value: string): string {
+  return value.replace(/[<>&'"]/g, (c) =>
+    ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c]!,
+  );
+}
+
 /**
- * A branded placeholder for cards that genuinely have no source image —
- * some RSS sources (PIB, Google News, a share of Behanbox items) never
- * provide one. Better than blocking publish on a manual upload the editor
- * may not have handy, and better than shipping a broken/missing image to
- * readers. Deterministic per input string, so drafting the same candidate
- * twice reuses the same look rather than a new random one each time.
+ * A branded placeholder for cards with no usable source image (denied by the
+ * licence policy, or the source never provides one). When a topic `label` is
+ * given the tint is chosen from it — so every card of a topic shares a coherent
+ * look — and the label is set across the art, which reads as intentional on a
+ * phone rather than blank. Deterministic, and phone-light (1000×640 → webp).
  */
-export async function generatePlaceholderImage(seedText: string): Promise<SavedImage> {
+export async function generatePlaceholderImage(seedText: string, label?: string): Promise<SavedImage> {
+  const tintSeed = label ?? seedText;
   let hash = 0;
-  for (let i = 0; i < seedText.length; i++) {
-    hash = (hash * 31 + seedText.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < tintSeed.length; i++) {
+    hash = (hash * 31 + tintSeed.charCodeAt(i)) >>> 0;
   }
 
-  const width = 1200;
-  const height = 800;
+  const width = 1000;
+  const height = 640;
   const palette = EDITORIAL_PALETTES[hash % EDITORIAL_PALETTES.length]!;
-  const x = 260 + (hash % 660);
-  const y = 190 + ((hash >>> 4) % 380);
-  const rotation = -18 + (hash % 37);
-  const composition = hash % 3;
-
-  const artwork = composition === 0
-    ? `<circle cx="${x}" cy="${y}" r="250" fill="none" stroke="${palette.primary}" stroke-width="80" opacity="0.72"/>
-       <circle cx="${x + 260}" cy="${y - 130}" r="145" fill="${palette.secondary}" opacity="0.3"/>
-       <path d="M80 650 C330 470 660 760 1120 380" fill="none" stroke="${palette.secondary}" stroke-width="12" opacity="0.55"/>`
-    : composition === 1
-      ? `<g transform="translate(${x} ${y}) rotate(${rotation})">
-           <ellipse cx="-170" cy="-95" rx="230" ry="115" fill="${palette.primary}" opacity="0.72"/>
-           <ellipse cx="170" cy="-95" rx="230" ry="115" fill="${palette.secondary}" opacity="0.34"/>
-           <ellipse cx="-130" cy="120" rx="190" ry="90" fill="${palette.secondary}" opacity="0.24"/>
-           <ellipse cx="130" cy="120" rx="190" ry="90" fill="${palette.primary}" opacity="0.5"/>
-         </g>`
-      : `<path d="M0 590 C250 420 430 720 700 510 C900 355 1030 440 1200 300 L1200 800 L0 800 Z" fill="${palette.primary}" opacity="0.58"/>
-         <path d="M0 690 C280 530 520 790 790 600 C980 465 1090 500 1200 440" fill="none" stroke="${palette.secondary}" stroke-width="18" opacity="0.5"/>
-         <circle cx="${x}" cy="${y - 120}" r="115" fill="${palette.secondary}" opacity="0.28"/>`;
+  const caption = (label ?? "Titli").toUpperCase();
 
   const svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <radialGradient id="glow" cx="78%" cy="18%" r="70%">
-        <stop offset="0" stop-color="${palette.primary}" stop-opacity="0.28"/>
-        <stop offset="1" stop-color="${palette.background}" stop-opacity="0"/>
-      </radialGradient>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="${palette.background}"/>
+        <stop offset="1" stop-color="${palette.primary}" stop-opacity="0.55"/>
+      </linearGradient>
     </defs>
-    <rect width="100%" height="100%" fill="${palette.background}"/>
-    <rect width="100%" height="100%" fill="url(#glow)"/>
-    ${artwork}
-    <g transform="translate(1060 92)" fill="none" stroke="${palette.secondary}" stroke-width="7" opacity="0.9">
-      <ellipse cx="-28" cy="-13" rx="34" ry="22" transform="rotate(24 -28 -13)"/>
-      <ellipse cx="28" cy="-13" rx="34" ry="22" transform="rotate(-24 28 -13)"/>
-      <ellipse cx="-23" cy="22" rx="28" ry="18" transform="rotate(-22 -23 22)"/>
-      <ellipse cx="23" cy="22" rx="28" ry="18" transform="rotate(22 23 22)"/>
+    <rect width="100%" height="100%" fill="url(#bg)"/>
+    <circle cx="815" cy="150" r="220" fill="${palette.primary}" opacity="0.28"/>
+    <circle cx="150" cy="560" r="180" fill="${palette.secondary}" opacity="0.12"/>
+    <path d="M0 470 C260 360 470 600 720 470 C880 388 940 430 1000 400 L1000 640 L0 640 Z" fill="${palette.primary}" opacity="0.35"/>
+    <g transform="translate(500 300)" fill="none" stroke="${palette.secondary}" stroke-width="9" opacity="0.9">
+      <ellipse cx="-40" cy="-20" rx="52" ry="34" transform="rotate(24 -40 -20)"/>
+      <ellipse cx="40" cy="-20" rx="52" ry="34" transform="rotate(-24 40 -20)"/>
+      <ellipse cx="-32" cy="34" rx="42" ry="27" transform="rotate(-22 -32 34)"/>
+      <ellipse cx="32" cy="34" rx="42" ry="27" transform="rotate(22 32 34)"/>
     </g>
+    <text x="500" y="470" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="700"
+      letter-spacing="4" fill="${palette.secondary}" fill-opacity="0.92" text-anchor="middle">${escapeXml(caption)}</text>
   </svg>`;
 
   return processImageBuffer(Buffer.from(svg));

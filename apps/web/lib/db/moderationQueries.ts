@@ -7,6 +7,7 @@ import { createCard, type CardInput } from "./adminQueries";
 import { getInboxCandidateById, markCandidateDrafted, prepareDraft } from "./inboxQueries";
 import { ensureEditionDraft, editionDateInIndia } from "./editionQueries";
 import { findVerbatimRuns } from "../originality";
+import { generatePlaceholderImage } from "../images";
 
 const DAILY_TARGET = EDITION_ROLE_CONFIG.length; // 7
 
@@ -18,6 +19,8 @@ export type ModerationStory = {
   topicSlug: string | null;
   previewImageUrl: string | null;
   sourceLink: string | null;
+  /** When the source published it — so the moderator can tell new from old. */
+  pubDate: string | null;
 };
 
 /**
@@ -37,6 +40,7 @@ export async function getModerationQueue(limit = 40): Promise<ModerationStory[]>
       sourceName: feedCandidates.sourceName,
       previewImageUrl: feedCandidates.imageUrl,
       sourceLink: feedCandidates.link,
+      pubDate: feedCandidates.pubDate,
     })
     .from(storyClusters)
     .leftJoin(feedCandidates, eq(feedCandidates.id, storyClusters.canonicalCandidateId))
@@ -52,6 +56,7 @@ export async function getModerationQueue(limit = 40): Promise<ModerationStory[]>
     topicSlug: row.topicSlug,
     previewImageUrl: row.previewImageUrl,
     sourceLink: row.sourceLink,
+    pubDate: row.pubDate,
   }));
 }
 
@@ -70,6 +75,11 @@ async function topicIdForSlug(slug: string | null): Promise<string> {
   }
   const [fallback] = await db.select({ id: topics.id }).from(topics).limit(1);
   return fallback?.id ?? "";
+}
+
+async function topicTitleForSlug(slug: string): Promise<string | null> {
+  const [row] = await db.select({ title: topics.title }).from(topics).where(eq(topics.slug, slug)).limit(1);
+  return row?.title ?? null;
 }
 
 export type PublishStoryInput = {
@@ -109,19 +119,33 @@ export async function publishStoryFromCluster(
   const candidate = await getInboxCandidateById(candidateId);
   if (!prepared || !candidate) throw new Error("Could not prepare this story");
 
-  const primaryTopicId = await topicIdForSlug(input.topicSlug ?? cluster.topicGuess);
+  const chosenSlug = input.topicSlug ?? cluster.topicGuess;
+  const primaryTopicId = await topicIdForSlug(chosenSlug);
   const deepDive = input.deepDive?.trim() || input.summary;
   const originality = input.sourceText ? findVerbatimRuns(input.summary, input.sourceText) : null;
 
-  // An editor-uploaded image wins; otherwise the policy-selected draft image.
+  // Image resolution, in order: an editor upload wins; then a policy-permitted
+  // source image; otherwise a generated placeholder tinted and labelled for the
+  // chosen topic (so it reads as intentional, not blank).
   const usingOwnImage = Boolean(input.image);
-  const image = input.image ?? {
-    path: candidate.draftImagePath ?? "",
-    alt: candidate.draftImageAlt ?? input.headline,
-    width: candidate.draftImageWidth ?? 0,
-    height: candidate.draftImageHeight ?? 0,
-    blurDataURL: candidate.draftImageBlurDataUrl ?? "",
-  };
+  const hasSourceImage = candidate.draftImageOrigin === "source_permitted" && Boolean(candidate.draftImagePath);
+  let image: { path: string; alt: string; width: number; height: number; blurDataURL: string };
+
+  if (input.image) {
+    image = input.image;
+  } else if (hasSourceImage) {
+    image = {
+      path: candidate.draftImagePath!,
+      alt: candidate.draftImageAlt ?? input.headline,
+      width: candidate.draftImageWidth ?? 0,
+      height: candidate.draftImageHeight ?? 0,
+      blurDataURL: candidate.draftImageBlurDataUrl ?? "",
+    };
+  } else {
+    const topicTitle = chosenSlug ? await topicTitleForSlug(chosenSlug) : null;
+    const placeholder = await generatePlaceholderImage(input.headline, topicTitle ?? undefined);
+    image = { path: placeholder.path, alt: input.headline, width: placeholder.width, height: placeholder.height, blurDataURL: placeholder.blurDataURL };
+  }
 
   const cardInput: CardInput = {
     cardType: "news",
@@ -135,9 +159,10 @@ export async function publishStoryFromCluster(
     imageWidth: image.width,
     imageHeight: image.height,
     imageBlurDataUrl: image.blurDataURL,
-    imageOrigin: usingOwnImage ? "own_upload" : candidate.draftImageOrigin ?? "generated",
-    imageCredit: usingOwnImage ? undefined : candidate.draftImageCredit ?? undefined,
-    imageSourceUrl: !usingOwnImage && candidate.draftImageOrigin === "source_permitted" ? candidate.link : undefined,
+    imageOrigin: usingOwnImage ? "own_upload" : hasSourceImage ? "source_permitted" : "generated",
+    // Inshorts-style: a re-hosted source image always carries its credit.
+    imageCredit: hasSourceImage ? candidate.draftImageCredit ?? candidate.sourceName : undefined,
+    imageSourceUrl: hasSourceImage ? candidate.link : undefined,
     publishedAt: new Date().toISOString(),
     isContested: false,
     topicIds: primaryTopicId ? [primaryTopicId] : [],

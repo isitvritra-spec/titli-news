@@ -11,7 +11,19 @@ export type ModerationStory = {
   topicSlug: string | null;
   previewImageUrl: string | null;
   sourceLink: string | null;
+  pubDate: string | null;
 };
+
+/** "2 days ago · 15 Sep" from the source's publish date — so the moderator judges freshness. */
+function sourceAge(iso: string | null): string | null {
+  if (!iso) return null;
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return null;
+  const hours = Math.round((Date.now() - then) / 3_600_000);
+  const rel = hours < 1 ? "just now" : hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
+  const date = new Date(then).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  return `${rel} · ${date}`;
+}
 
 export type ChosenCard = { cardId: string; headline: string; imagePath: string; position: number };
 
@@ -281,6 +293,7 @@ export function TodayModeration({
                   <div className="mb-1.5 flex flex-wrap items-center gap-x-2 text-caption text-muted">
                     {story.sourceName ? <span>{story.sourceName}</span> : null}
                     {story.outletCount > 1 ? <span>· {story.outletCount} outlets</span> : null}
+                    {sourceAge(story.pubDate) ? <span>· {sourceAge(story.pubDate)}</span> : null}
                   </div>
                   <h2 className="font-headline text-[18px] leading-snug text-ink line-clamp-3">{story.headline}</h2>
                 </div>
@@ -331,6 +344,13 @@ export function TodayModeration({
 
               {/* Editable fields, each with an optional Gemini fill */}
               <div className="grid content-start gap-3 p-5">
+                <div className="flex flex-wrap items-center gap-x-2 text-caption text-muted">
+                  {draft.story.sourceName ? <span>{draft.story.sourceName}</span> : null}
+                  {sourceAge(draft.story.pubDate) ? <span>· published {sourceAge(draft.story.pubDate)}</span> : null}
+                  {draft.story.sourceLink ? (
+                    <a href={draft.story.sourceLink} target="_blank" rel="noreferrer" className="underline">original</a>
+                  ) : null}
+                </div>
                 {suggestState === "unavailable" ? (
                   <p className="rounded-md border border-hairline bg-surface px-3 py-2 text-caption text-muted">
                     Gemini can’t draft this one — the key isn’t set or this source isn’t allowed for text fetching. Write it yourself below.
