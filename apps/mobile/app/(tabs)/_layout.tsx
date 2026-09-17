@@ -35,8 +35,9 @@ export default function TabsLayout() {
         )}
         screenOptions={{
           headerShown: false,
-          animation: "fade",
-          transitionSpec: { animation: "timing", config: { duration: 240 } },
+          // Directional horizontal transition so moving between tabs reads as a slide.
+          animation: "shift",
+          transitionSpec: { animation: "timing", config: { duration: 220 } },
           tabBarStyle: { position: "absolute", height: DOCK_HEIGHT },
           tabBarHideOnKeyboard: true,
         }}
@@ -146,14 +147,14 @@ function NavigationDock({
               <Text style={s.tabLabel}>Today</Text>
             </Pressable>
             <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Open explore menu"
-              accessibilityState={{ expanded: open }}
-              aria-expanded={open}
-              onPress={() => setOpen(true)}
+              accessibilityRole="tab"
+              accessibilityLabel="Explore"
+              accessibilityState={{ selected: current === "topics" }}
+              aria-selected={current === "topics"}
+              onPress={() => tab("topics")}
               style={[s.tab, current === "topics" && s.active]}
             >
-              <Symbol name="menu" color={dockInk} size={22} />
+              <Symbol name="globe" color={dockInk} size={22} />
               <Text style={s.tabLabel}>Explore</Text>
             </Pressable>
             <Pressable

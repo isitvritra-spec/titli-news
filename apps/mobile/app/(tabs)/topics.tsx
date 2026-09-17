@@ -36,6 +36,7 @@ import {
   PulseIcon,
 } from "../../components/icons";
 import { EditorialHeader } from "../../components/EditorialHeader";
+import { SwipeableTabScreen } from "../../components/SwipeableTabScreen";
 import { Symbol } from "../../components/ui/Symbol";
 import { editorial as e, type } from "../../components/ui/theme";
 
@@ -143,6 +144,7 @@ export default function Topics() {
     );
   }
   return (
+    <SwipeableTabScreen current="explore">
     <View style={{ flex: 1, backgroundColor: e.paper }}>
       <EditorialHeader
         eyebrow="Explore"
@@ -582,6 +584,7 @@ export default function Topics() {
         </Pressable>
       </ScrollView>
     </View>
+    </SwipeableTabScreen>
   );
 }
 const s = StyleSheet.create({
