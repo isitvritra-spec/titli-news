@@ -16,6 +16,9 @@ export type ModerationStory = {
 export type ChosenCard = { cardId: string; headline: string; imagePath: string; position: number };
 
 type DraftImage = { path: string; alt: string; width: number; height: number; blurDataURL: string };
+type Suggestion = { headline: string; summary: string; deepDive: string };
+type SuggestState = "idle" | "loading" | "ready" | "unavailable";
+type FieldKey = "headline" | "summary" | "deepDive";
 
 type Draft = {
   story: ModerationStory;
@@ -47,12 +50,15 @@ export function TodayModeration({
   const [chosenList, setChosenList] = useState(chosen);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [tab, setTab] = useState<"card" | "inside">("card");
-  const [editing, setEditing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [suggesting, setSuggesting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Cached Gemini suggestion for the open story — one call, applied per field on demand.
+  const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
+  const [suggestState, setSuggestState] = useState<SuggestState>("idle");
+  const [filling, setFilling] = useState<FieldKey | null>(null);
 
   const topicOptions = Object.entries(topicLabels).map(([slug, title]) => ({ slug, title }));
   const chosenCount = chosenList.length;
@@ -80,10 +86,12 @@ export function TodayModeration({
     router.refresh();
   }
 
-  async function openStory(story: ModerationStory) {
+  function openStory(story: ModerationStory) {
     setError(null);
     setTab("card");
-    setEditing(false);
+    setSuggestion(null);
+    setSuggestState("idle");
+    setFilling(null);
     setDraft({
       story,
       headline: story.headline,
@@ -93,32 +101,41 @@ export function TodayModeration({
       image: null,
       aiGenerated: false,
     });
-    if (!aiEnabled) {
-      setEditing(true); // nothing to preview yet — go straight to writing
-      return;
-    }
-    setSuggesting(true);
+  }
+
+  // Fetches the Gemini draft once and caches it; returns null when unavailable
+  // (no key, or the source doesn't permit text fetching).
+  async function ensureSuggestion(clusterId: string): Promise<Suggestion | null> {
+    if (suggestion) return suggestion;
+    if (suggestState === "unavailable") return null;
+    setSuggestState("loading");
     try {
       const res = await fetch("/api/admin/today/suggest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clusterId: story.clusterId }),
+        body: JSON.stringify({ clusterId }),
       });
       const data = await res.json();
       if (data?.enabled) {
-        setDraft((current) =>
-          current && current.story.clusterId === story.clusterId
-            ? { ...current, headline: data.headline ?? current.headline, summary: data.summary ?? "", deepDive: data.deepDive ?? "", aiGenerated: true }
-            : current,
-        );
-      } else {
-        setEditing(true);
+        const next = { headline: data.headline ?? "", summary: data.summary ?? "", deepDive: data.deepDive ?? "" };
+        setSuggestion(next);
+        setSuggestState("ready");
+        return next;
       }
     } catch {
-      setEditing(true);
-    } finally {
-      setSuggesting(false);
+      // fall through to unavailable
     }
+    setSuggestState("unavailable");
+    return null;
+  }
+
+  async function fillWithGemini(field: FieldKey) {
+    if (!draft) return;
+    setFilling(field);
+    const s = await ensureSuggestion(draft.story.clusterId);
+    setFilling(null);
+    if (!s) return;
+    setDraft((current) => (current ? { ...current, [field]: s[field], aiGenerated: true } : current));
   }
 
   async function onUploadImage(file: File | null) {
@@ -141,7 +158,6 @@ export function TodayModeration({
     if (!draft) return;
     if (!draft.headline.trim() || !draft.summary.trim()) {
       setError("Add a headline and a short summary before publishing.");
-      setEditing(true);
       return;
     }
     setPublishing(true);
@@ -294,103 +310,67 @@ export function TodayModeration({
             className="flex h-full w-full max-w-4xl flex-col overflow-hidden bg-bg sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl sm:border sm:border-hairline sm:shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-hairline px-5 py-3">
               <div className="flex gap-1 rounded-full bg-pressed p-1">
-                <button
-                  onClick={() => setTab("card")}
-                  className={`rounded-full px-3 py-1 text-caption font-medium ${tab === "card" ? "bg-bg text-ink shadow-sm" : "text-muted"}`}
-                >
-                  Card
-                </button>
-                <button
-                  onClick={() => setTab("inside")}
-                  className={`rounded-full px-3 py-1 text-caption font-medium ${tab === "inside" ? "bg-bg text-ink shadow-sm" : "text-muted"}`}
-                >
-                  Inside
-                </button>
+                <button onClick={() => setTab("card")} className={`rounded-full px-3 py-1 text-caption font-medium ${tab === "card" ? "bg-bg text-ink shadow-sm" : "text-muted"}`}>Card</button>
+                <button onClick={() => setTab("inside")} className={`rounded-full px-3 py-1 text-caption font-medium ${tab === "inside" ? "bg-bg text-ink shadow-sm" : "text-muted"}`}>Inside</button>
               </div>
               <button onClick={() => setDraft(null)} disabled={publishing} className="text-label text-muted hover:text-ink">Close</button>
             </div>
 
             <div className="grid flex-1 overflow-y-auto md:grid-cols-2">
-              {/* Reader preview */}
+              {/* Live reader preview */}
               <div className="border-b border-hairline bg-surface2 p-5 md:border-b-0 md:border-r">
                 <p className="mb-3 text-caption uppercase tracking-wide text-muted">How readers see it</p>
-                {suggesting ? (
-                  <p className="text-caption text-gold">Preparing a draft…</p>
-                ) : tab === "card" ? (
+                {tab === "card" ? (
                   <ReaderCardPreview image={previewImage} topic={topicTitle} headline={draft.headline} summary={draft.summary} />
                 ) : (
                   <ReaderInsidePreview image={previewImage} headline={draft.headline} deepDive={draft.deepDive || draft.summary} />
                 )}
               </div>
 
-              {/* Details / edit */}
-              <div className="p-5">
-                {editing ? (
-                  <div className="grid gap-3">
-                    <p className="text-caption text-muted">Edit anything — readers see exactly the preview on the left.</p>
-                    <Field label="Headline">
-                      <input value={draft.headline} onChange={(e) => setDraft({ ...draft, headline: e.target.value })} className={inputClass} />
-                    </Field>
-                    <Field label="Summary (about 60 words)">
-                      <textarea value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} rows={4} className={inputClass} placeholder="A short, self-contained summary." />
-                    </Field>
-                    <Field label="The inside (fuller story, optional)">
-                      <textarea value={draft.deepDive} onChange={(e) => setDraft({ ...draft, deepDive: e.target.value })} rows={4} className={inputClass} placeholder="A longer explanation for readers who tap in." />
-                    </Field>
-                    <Field label="Topic">
-                      <select value={draft.topicSlug} onChange={(e) => setDraft({ ...draft, topicSlug: e.target.value })} className={inputClass}>
-                        {topicOptions.map((topic) => <option key={topic.slug} value={topic.slug}>{topic.title}</option>)}
-                      </select>
-                    </Field>
-                    <Field label="Image">
-                      <input type="file" accept="image/*" onChange={(e) => onUploadImage(e.target.files?.[0] ?? null)} className="text-caption text-muted" />
-                      {uploading ? <span className="ml-2 text-caption text-gold">Uploading…</span> : null}
-                    </Field>
-                  </div>
+              {/* Editable fields, each with an optional Gemini fill */}
+              <div className="grid content-start gap-3 p-5">
+                {suggestState === "unavailable" ? (
+                  <p className="rounded-md border border-hairline bg-surface px-3 py-2 text-caption text-muted">
+                    Gemini can’t draft this one — the key isn’t set or this source isn’t allowed for text fetching. Write it yourself below.
+                  </p>
                 ) : (
-                  <div>
-                    <div className="mb-2 flex flex-wrap items-center gap-2 text-caption text-muted">
-                      {topicTitle ? <span className="rounded-full bg-pressed px-2 py-0.5">{topicTitle}</span> : null}
-                      {draft.story.sourceName ? <span>{draft.story.sourceName}</span> : null}
-                      {draft.aiGenerated ? <span className="rounded-full border border-plum px-2 py-0.5 text-plum">AI draft</span> : null}
-                    </div>
-                    <h3 className="font-headline text-title text-ink">{draft.headline}</h3>
-                    <p className="mt-2 text-body text-ink">{draft.summary || <span className="text-muted">No summary yet — tap Edit to write one.</span>}</p>
-                    {draft.aiGenerated ? (
-                      <p className="mt-3 text-caption text-muted">This was drafted by the model. Check the facts before publishing.</p>
-                    ) : null}
-                    {draft.story.sourceLink ? (
-                      <a href={draft.story.sourceLink} target="_blank" rel="noreferrer" className="mt-3 inline-block text-caption text-muted underline">Read the original</a>
-                    ) : null}
-                  </div>
+                  <p className="text-caption text-muted">Write it yourself, or use Gemini on any field and edit freely.</p>
                 )}
 
-                {error ? <p className="mt-3 text-caption text-red">{error}</p> : null}
+                <FieldRow label="Headline" aiEnabled={aiEnabled} loading={filling === "headline"} onGemini={() => fillWithGemini("headline")}>
+                  <input value={draft.headline} onChange={(e) => setDraft({ ...draft, headline: e.target.value })} className={inputClass} />
+                </FieldRow>
+
+                <FieldRow label="Summary (about 60 words)" aiEnabled={aiEnabled} loading={filling === "summary"} onGemini={() => fillWithGemini("summary")}>
+                  <textarea value={draft.summary} onChange={(e) => setDraft({ ...draft, summary: e.target.value })} rows={4} className={inputClass} placeholder="A short, self-contained summary." />
+                </FieldRow>
+
+                <FieldRow label="The inside (fuller story, optional)" aiEnabled={aiEnabled} loading={filling === "deepDive"} onGemini={() => fillWithGemini("deepDive")}>
+                  <textarea value={draft.deepDive} onChange={(e) => setDraft({ ...draft, deepDive: e.target.value })} rows={4} className={inputClass} placeholder="A longer explanation for readers who tap in." />
+                </FieldRow>
+
+                <label className="block">
+                  <span className="mb-1 block text-caption text-muted">Topic</span>
+                  <select value={draft.topicSlug} onChange={(e) => setDraft({ ...draft, topicSlug: e.target.value })} className={inputClass}>
+                    {topicOptions.map((topic) => <option key={topic.slug} value={topic.slug}>{topic.title}</option>)}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-caption text-muted">Image</span>
+                  <input type="file" accept="image/*" onChange={(e) => onUploadImage(e.target.files?.[0] ?? null)} className="text-caption text-muted" />
+                  {uploading ? <span className="ml-2 text-caption text-gold">Uploading…</span> : null}
+                </label>
+
+                {error ? <p className="text-caption text-red">{error}</p> : null}
               </div>
             </div>
 
-            {/* Footer actions */}
             <div className="flex items-center gap-2 border-t border-hairline px-5 py-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))" }}>
-              <button
-                onClick={() => setEditing((v) => !v)}
-                className="rounded-full border border-hairline px-5 py-2.5 font-headline text-label text-ink hover:border-gold"
-              >
-                {editing ? "Done editing" : "Edit"}
-              </button>
-              <button
-                onClick={() => skip(draft.story)}
-                className="rounded-full border border-hairline px-5 py-2.5 font-headline text-label text-muted hover:text-ink"
-              >
-                Skip
-              </button>
-              <button
-                onClick={publish}
-                disabled={publishing || suggesting}
-                className="ml-auto rounded-full bg-gold px-6 py-2.5 font-headline font-medium text-label text-bg disabled:opacity-50"
-              >
+              <button onClick={() => skip(draft.story)} className="rounded-full border border-hairline px-5 py-2.5 font-headline text-label text-muted hover:text-ink">Skip</button>
+              <button onClick={publish} disabled={publishing} className="ml-auto rounded-full bg-gold px-6 py-2.5 font-headline font-medium text-label text-bg disabled:opacity-50">
                 {publishing ? "Publishing…" : "Publish"}
               </button>
             </div>
@@ -403,16 +383,50 @@ export function TodayModeration({
 
 const inputClass = "w-full rounded-md border border-hairline bg-surface px-3 py-2 text-ink";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/** A labelled field with an optional "Gemini" fill button on the right of the label. */
+function FieldRow({
+  label,
+  aiEnabled,
+  loading,
+  onGemini,
+  children,
+}: {
+  label: string;
+  aiEnabled: boolean;
+  loading: boolean;
+  onGemini: () => void;
+  children: React.ReactNode;
+}) {
   return (
-    <label className="block">
-      <span className="mb-1 block text-caption text-muted">{label}</span>
+    <div className="block">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-caption text-muted">{label}</span>
+        {aiEnabled ? (
+          <button
+            type="button"
+            onClick={onGemini}
+            disabled={loading}
+            className="inline-flex items-center gap-1 rounded-full border border-plum/50 px-2.5 py-0.5 text-caption text-plum transition hover:bg-plum/10 disabled:opacity-50"
+            title="Draft this field with Gemini"
+          >
+            <SparkIcon />
+            {loading ? "Drafting…" : "Gemini"}
+          </button>
+        ) : null}
+      </div>
       {children}
-    </label>
+    </div>
   );
 }
 
-/** Mimics the reader's feed card so the editor sees what ships. */
+function SparkIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
+    </svg>
+  );
+}
+
 function ReaderCardPreview({ image, topic, headline, summary }: { image: string | null; topic: string; headline: string; summary: string }) {
   return (
     <div className="mx-auto max-w-sm overflow-hidden rounded-card border border-hairline bg-surface shadow-sm">
@@ -431,7 +445,6 @@ function ReaderCardPreview({ image, topic, headline, summary }: { image: string 
   );
 }
 
-/** Mimics the reader's detail (inside) view. */
 function ReaderInsidePreview({ image, headline, deepDive }: { image: string | null; headline: string; deepDive: string }) {
   return (
     <div className="mx-auto max-w-sm overflow-hidden rounded-card border border-hairline bg-surface shadow-sm">

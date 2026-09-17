@@ -8,7 +8,7 @@
  * move, so a newer Flash model is a GEMINI_MODEL change rather than a code edit.
  */
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.6-flash";
 const DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const REQUEST_TIMEOUT_MS = 30_000;
 
