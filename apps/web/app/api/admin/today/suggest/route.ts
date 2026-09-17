@@ -39,12 +39,13 @@ export async function POST(request: Request) {
   if (!candidate) return NextResponse.json({ error: "Story not found" }, { status: 404 });
 
   const [source] = await db.select().from(sources).where(eq(sources.name, candidate.sourceName)).limit(1);
-  if (!source?.allowsTextFetch) {
-    return NextResponse.json({ enabled: false });
-  }
 
-  const articleText = await fetchArticleText(candidate.link);
-  if (!articleText) {
+  // Prefer the full article when the source permits fetching it; otherwise fall
+  // back to the feed's own snippet, which we already ingest under syndication.
+  // Either way Gemini writes an original summary — never a copy.
+  const articleText = source?.allowsTextFetch ? await fetchArticleText(candidate.link) : null;
+  const sourceText = articleText ?? candidate.summary ?? null;
+  if (!sourceText || sourceText.trim().length < 40) {
     return NextResponse.json({ enabled: false });
   }
 
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
     const topics = await getTopics();
     const draft = await draftCardFromSource({
       sourceTitle: candidate.title,
-      sourceText: articleText,
+      sourceText,
       allowedTopicSlugs: topics.map((topic) => topic.slug),
     });
     return NextResponse.json({

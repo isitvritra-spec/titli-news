@@ -15,10 +15,18 @@ export async function refreshInbox(): Promise<number> {
 
   const links = fetched.map((c) => c.link);
   const existing = await db
-    .select({ link: feedCandidates.link })
+    .select({ link: feedCandidates.link, summary: feedCandidates.summary })
     .from(feedCandidates)
     .where(inArray(feedCandidates.link, links));
   const existingLinks = new Set(existing.map((e) => e.link));
+
+  // Backfill the feed snippet onto already-stored candidates that predate it,
+  // so AI drafting works on the current inbox after one refresh.
+  const needSummary = new Map(existing.filter((e) => !e.summary).map((e) => [e.link, true]));
+  const backfill = fetched.filter((c) => c.summary && needSummary.has(c.link));
+  for (const c of backfill) {
+    await db.update(feedCandidates).set({ summary: c.summary }).where(eq(feedCandidates.link, c.link));
+  }
 
   const toInsert: FeedCandidateInput[] = fetched.filter((c) => !existingLinks.has(c.link));
   if (toInsert.length === 0) return 0;
@@ -31,6 +39,7 @@ export async function refreshInbox(): Promise<number> {
       link: c.link,
       imageUrl: c.imageUrl,
       pubDate: c.pubDate,
+      summary: c.summary,
     }))
   );
 

@@ -245,6 +245,8 @@ export const feedCandidates = sqliteTable(
   link: text("link").notNull().unique(),
   imageUrl: text("image_url"),
   pubDate: text("pub_date"),
+  /** The feed item's own description/snippet — legitimate syndication text, used as input for AI summarizing when the full article can't be fetched. */
+  summary: text("summary"),
   fetchedAt: text("fetched_at").notNull().default(sql`(current_timestamp)`),
 
   /**

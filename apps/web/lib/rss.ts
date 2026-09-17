@@ -110,6 +110,7 @@ export type FeedCandidateInput = {
   link: string;
   imageUrl: string | null;
   pubDate: string | null;
+  summary: string | null;
 };
 
 type RawItem = Parser.Item & {
@@ -152,6 +153,17 @@ function extractImage(item: RawItem): string | null {
   return match ? match[1] : null;
 }
 
+/** The feed item's own summary text, tags stripped and capped — never the full page. */
+function extractSummary(item: RawItem): string | null {
+  const raw = item.contentSnippet ?? item.content ?? item["content:encoded"] ?? "";
+  const text = String(raw)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length >= 40 ? text.slice(0, 1200) : null;
+}
+
 function toCandidate(item: RawItem, source: { name: string; siteUrl: string }): FeedCandidateInput | null {
   if (!item.title || !item.link) return null;
   return {
@@ -161,6 +173,7 @@ function toCandidate(item: RawItem, source: { name: string; siteUrl: string }): 
     link: item.link,
     imageUrl: extractImage(item),
     pubDate: item.isoDate ?? item.pubDate ?? null,
+    summary: extractSummary(item),
   };
 }
 
